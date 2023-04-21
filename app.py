@@ -18,12 +18,17 @@ def server(input, output, session):
     @render.plot(alt="Preview of the loaded spectra")
     @reactive.event(input.b_preview)
     def preview_data():
-        #if input.input_files() is None:
-        fig, ax = plt.subplots()
-        ax = plt.text(0.4, 0.4, "Please upload your spectra first")
-        #    return fig
-        #f: list[FileInfo] = input.file1()
-        #fig, ax = plt.subplots()
+        if input.input_files() is None:
+            fig, ax = plt.subplots()
+            ax = plt.text(0.4, 0.4, "Please upload your spectra first")
+            return fig
+        f: list[FileInfo] = input.input_files()
+        fig, ax = plt.subplots(1, len(f), sharey=True)
+        print('length of files dataset is ', len(f), ' files')
+        for ifil in range(len(f)):
+            cur_data = np.loadtxt(f[ifil]["datapath"], comments='//')
+            ax[ifil].plot(cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]), 'ro')
+            #ax = plt.subplot(ifil, cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]))
         return fig
 
 
