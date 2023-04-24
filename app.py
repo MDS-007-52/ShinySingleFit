@@ -42,7 +42,7 @@ def server(input, output, session):
             ax[ifil].plot(cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]), 'ro')
             #ax = plt.subplot(ifil, cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]))
         #print(fnames)
-        spectra_info()
+        #spectra_info()
         return fig
 
     # @render_widget
