@@ -1,6 +1,7 @@
 from shiny import *
-from shinywidgets import output_widget, render_widget
+from shinywidgets import *
 import ipywidgets as widgets
+import ipysheet
 import numpy as np
 import matplotlib.pyplot as plt
 
