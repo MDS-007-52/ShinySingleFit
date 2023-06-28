@@ -2,3 +2,4 @@
 venv/
 _aux/
 Thumbs.db
+__pycache__/
