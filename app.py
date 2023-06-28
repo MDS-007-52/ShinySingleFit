@@ -3,7 +3,7 @@ from shinywidgets import *
 import ipywidgets as widgets
 import ipysheet
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 from SDRP import SDRP
 from subr_fit import fit_params, fit_uncertainties
