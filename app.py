@@ -1,8 +1,11 @@
-from shiny import *
+from shiny.types import FileInfo
+from shiny import * #App, Inputs, Outputs, Session, render, ui
 from shinywidgets import *
 import ipywidgets as widgets
 import ipysheet
 import numpy as np
+from matplotlib import pyplot as plt
+import pandas as pd
 
 
 from SDRP import SDRP
@@ -10,16 +13,32 @@ from subr_fit import fit_params, fit_uncertainties
 from constants import *
 
 app_ui = ui.page_fluid(
-    ui.h2("Hello Shiny!"),
+    ui.h2("This is my shiny Line-by-line fit!"),
+    ui.layout_sidebar(
+        ui.panel_sidebar(ui.input_file("aux_data", "Load recordings info", accept=["*.*"], multiple=False)),
+        ui.panel_main(ui.output_ui("aux_data_show"))
+
+    ),
+#    ui.output_ui("aux_data_table"),
     ui.input_file("input_files", "Load your spectra", accept=["*.*"], multiple=True),
     ui.input_action_button("b_preview", "Preview"),
-    output_widget("spectra_info"),
-    ui.output_plot("preview_data"),
+    ui.output_plot("preview_data")
 )
 
 #
 
 def server(input, output, session):
+    @output
+    @render.ui
+    def aux_data_show():
+        if input.aux_data() is None:
+            return "Upload a file"
+        aux_file: list[FileInfo] = input.aux_data()
+        print(aux_file[0]["datapath"])
+        aux_out = pd.read_csv(aux_file[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
+        print(aux_out.columns)
+        return ui.HTML(aux_out.to_html(classes = "table table-striped"))
+
     @output
     @render.plot(alt="Preview of the loaded spectra")
     @reactive.event(input.b_preview)
@@ -45,6 +64,8 @@ def server(input, output, session):
         #print(fnames)
         #spectra_info()
         return fig
+
+
 
     # @render_widget
     # def spectra_info():
