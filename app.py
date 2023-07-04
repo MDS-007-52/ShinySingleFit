@@ -15,6 +15,39 @@ from constants import *
 app_ui = ui.page_fluid(
     ui.h2("This is my shiny Line-by-line fit!"),
     ui.layout_sidebar(
+        ui.panel_sidebar(
+            ui.input_checkbox_group("jac_check", "Fit",
+                         {"frq":"Central freq",
+                          "int":"Intensity",
+                           "g0":"Gamma 0",
+                           "g2":"Gamma 2",
+                           "d2":"Delta 2",
+                            "y":"Mixing",
+                         "nuvc":"Vel.chng.rate",
+                          "pow":"Power factor",
+                          "bl0":"Baseline 0",
+                          "bl1":"Baseline 1",
+                          "bl2":"Baseline 2",
+                          "bl3":"Baseline 3"})
+                        ),
+        ui.panel_main(
+            ui.row(
+                ui.column(2,  ui.input_numeric("f0", "Line center, MHz", value=115271.)),
+                ui.column(3, ui.input_numeric("I0", "Intensity, 1e-25 cm/mol", value=33.)),
+            )
+        )
+    ),
+    # ui.row(
+    #     ui.column(2,  ui.input_numeric("f0", "Line center, MHz", value=115271.)),
+    #     ui.column(2, ui.input_numeric("I0", "Intensity, 1e-25 cm/mol", value=33.)),
+    #     ui.column(2, ui.input_numeric("g0", "g0 self, MHz/Torr", value=3.375)),
+    #     ui.column(2, ui.input_numeric("g2", "g2 self, MHz/Torr", value=0.33)),
+    #     ui.column(2, ui.input_numeric("d2", "d2 self, MHz/Torr", value=0.000)),
+    #     ui.column(2, ui.input_numeric("y0", "y0 self, MHz/Torr", value=7.e-6)),
+    #     ui.column(2, ui.input_numeric("d_nu", "Nu_vc self, MHz/Torr", value=0.15)),
+    #     ui.column(2, ui.input_numeric("n_g", "T-exp, unitless", value=0.75))
+    # ),
+    ui.layout_sidebar(
         ui.panel_sidebar(ui.input_file("aux_data", "Load recordings info", accept=["*.*"], multiple=False)),
         ui.panel_main(ui.output_ui("aux_data_show"))
 
@@ -32,7 +65,7 @@ def server(input, output, session):
     @render.ui
     def aux_data_show():
         if input.aux_data() is None:
-            return "Upload a file"
+            return "Upload a file with recordings conditions"
         aux_file: list[FileInfo] = input.aux_data()
         print(aux_file[0]["datapath"])
         aux_out = pd.read_csv(aux_file[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
