@@ -7,32 +7,25 @@ import numpy as np
 from matplotlib import pyplot as plt
 import pandas as pd
 
-
 from SDRP import SDRP
+from fitmodels import *
 from subr_fit import fit_params, fit_uncertainties
 from constants import *
+
+global aux_out
+aux_out = pd.DataFrame([0., 0., 0., 0., 0, 1.])
 
 app_ui = ui.page_fluid(
     ui.panel_title("This is my shiny Line-by-line fit!"),
     # this sidebar layout for marking which parameters to adjust and initial parameters values
     ui.layout_sidebar(
-        ui.panel_sidebar(ui.row(ui.h4("Mark adjustable")), ui.h4(""),
+        ui.panel_sidebar(ui.h4("Mark adjustable"),
             ui.input_checkbox_group("jac_check", "",
-                         {"frq":"Central freq",
-                          "int":"Intensity",
-                           "g0":"Gamma 0",
-                           "g2":"Gamma 2",
-                           "d2":"Delta 2",
-                            "y":"Mixing",
-                         "nuvc":"Vel.chng.rate",
-                          "pow":"Power factor",
-                          "bl0":"Baseline 0",
-                          "bl1":"Baseline 1",
-                          "bl2":"Baseline 2",
-                          "bl3":"Baseline 3"}),
-                        ui.input_action_button("b_check", "Check")
+                                    single_params_dict, selected=list(single_params_dict.keys())),
+                        ui.input_action_button("b_check", "Check"),
+                         ui.output_text("jac_flag_out")
                         ),
-        ui.panel_main(ui.row(ui.h4(" "), ui.h4(" "), ui.h4("Parameters and coefficients for initial values")),
+        ui.panel_main(ui.h4("Parameters and coefficients for initial values"),
             ui.row(
                 ui.column(3,  ui.input_numeric("f0", "Line center, MHz", value=115271.)),
                 ui.column(4, ui.input_numeric("I0", "Intensity, 1e-25 cm/mol", value=33.)),
@@ -81,16 +74,28 @@ app_ui = ui.page_fluid(
 
 def server(input, output, session):
     # this shows the recordings markup info
+
+
     @output
     @render.ui
     def aux_data_show():
         if input.aux_data() is None:
             return "Upload a file with recordings conditions"
         aux_file: list[FileInfo] = input.aux_data()
-        print(aux_file[0]["datapath"])
+        #print(aux_file[0]["datapath"])
         aux_out = pd.read_csv(aux_file[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
-        print(aux_out.columns)
+        #print(aux_out.columns)
         return ui.HTML(aux_out.to_html(classes="table table-striped"))
+
+    # check literally anything which is going inside my code
+    @output
+    @render.text
+    @reactive.event(input.b_check)
+    def jac_flag_out():
+        #print([int(elem in input.jac_check()) for elem in single_params_dict])
+        #return [int(elem in input.jac_check()) for elem in single_params_dict]
+        #aux_out = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
+        return "Nothing to check currently"#aux_out.to_numpy()[:, 0]
 
     # this shows the preview of the loaded spectra ("Preview" button)
     @output

@@ -13,3 +13,16 @@ t_ref = 296.  # reference temperature, K
 n_const_par = 2  # number of common parameters for all the recordings in batch
 
 n_add_par = 2  # number of individual parameters of a separate recording
+
+single_params_dict = {"frq":"Central freq",
+                      "int":"Intensity",
+                      "g0":"Gamma 0",
+                      "g2":"Gamma 2",
+                      "d2":"Delta 2",
+                      "y":"Mixing",
+                      "nuvc":"Vel.chng.rate",
+                      "pow":"Power factor",
+                      "bl0":"Baseline 0",
+                      "bl1":"Baseline 1",
+                      "bl2":"Baseline 2",
+                      "bl3":"Baseline 3"}
