@@ -2,7 +2,7 @@ import numpy as np
 from SDRP import SDRP
 
 
-def mdl(frq: np.ndarray, params: np.ndarray) -> np.ndarray:
+def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
     absor = np.empty_like(frq)
     for ifr in range(len(frq)):
         absor[ifr] = SDRP(frq[ifr], params[0], params[4], params[1], params[2], 0., params[3], params[5])

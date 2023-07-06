@@ -13,9 +13,17 @@ from subr_fit import fit_params, fit_uncertainties
 from constants import *
 
 global aux_out
-aux_out = pd.DataFrame([0., 0., 0., 0., 0, 1.])
+aux_out = pd.DataFrame([0., 0., 0., 0., 0, 1.], [1., 1., 1., 1., 0, 1.])
 
 app_ui = ui.page_fluid(
+    ui.head_content(
+        ui.tags.script(
+            src="https://polyfill.io/v3/polyfill.min.js?features=es6"
+        ),
+        ui.tags.script(
+            "if (window.MathJax) MathJax.Hub.Queue(['Typeset', MathJax.Hub]);"
+        ),
+    ),
     ui.panel_title("This is my shiny Line-by-line fit!"),
     # this sidebar layout for marking which parameters to adjust and initial parameters values
     ui.layout_sidebar(
@@ -29,6 +37,7 @@ app_ui = ui.page_fluid(
             ui.row(
                 ui.column(3,  ui.input_numeric("f0", "Line center, MHz", value=115271.)),
                 ui.column(4, ui.input_numeric("I0", "Intensity, 1e-25 cm/mol", value=33.)),
+                ui.column(4, ui.input_numeric("elow", "Lower level energy, 1/cm", value=0.))
             ),
             ui.row(
                 ui.column(3, ui.input_numeric("g0", "g0 self, MHz/Torr", value=3.375)),
@@ -56,7 +65,8 @@ app_ui = ui.page_fluid(
     # this layout is for uploading "markup" for recordings, i.e. pressures, temperature, recording type etc
 
     ui.layout_sidebar(
-        ui.panel_sidebar(ui.input_file("aux_data", "Load recordings info", accept=["*.*"], multiple=False)),
+        ui.panel_sidebar(ui.input_file("aux_data", "Load recordings info", accept=["*.*"], multiple=False),
+                         ui.input_file("partition", "Load partition function", accept=["*.*"], multiple=False)),
         ui.panel_main(ui.output_ui("aux_data_show"))
 
     ),
@@ -67,14 +77,15 @@ app_ui = ui.page_fluid(
         ui.column(4, ui.input_text("text_comment", "Commented lines", value="//")),
         ui.column(4, ui.input_action_button("b_preview", "Preview"))
         ),
-    ui.output_plot("preview_data")
+    ui.output_plot("preview_data"),
+    ui.output_text("preview_status")
 )
 
 #
 
 def server(input, output, session):
     # this shows the recordings markup info
-
+    # aux_out = pd.DataFrame()
 
     @output
     @render.ui
@@ -95,7 +106,7 @@ def server(input, output, session):
         #print([int(elem in input.jac_check()) for elem in single_params_dict])
         #return [int(elem in input.jac_check()) for elem in single_params_dict]
         #aux_out = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
-        return "Nothing to check currently"#aux_out.to_numpy()[:, 0]
+        return aux_out.to_numpy()[:, 0]
 
     # this shows the preview of the loaded spectra ("Preview" button)
     @output
@@ -106,24 +117,53 @@ def server(input, output, session):
             fig, ax = plt.subplots()
             ax = plt.text(0.4, 0.4, "Please upload your spectra first")
             return fig
+        if input.aux_data() is None:
+            fig, ax = plt.subplots()
+            ax = plt.text(0.4, 0.4, "Please upload data on the recordings pressures, temperatures, etc")
+            return fig
+        if input.partition() is None:
+            fig, ax = plt.subplots()
+            ax = plt.text(0.4, 0.4, "Please upload your partition data")
+            return fig
         # read the list of the loaded filenames etc
         f: list[FileInfo] = input.input_files()
         fig, ax = plt.subplots(1, len(f), sharey=True)
         print('length of files dataset is ', len(f), ' files')
         # f has fields: name, size, type, datapath
-        # global fnames
-        # fnames = list()
-        # for item in f:
-        #     fnames.append(item["name"])
+        aux_df = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
+        aux_data = aux_df.to_numpy(dtype=float)
+        p_self = aux_data[:, 0]
+        p_for = aux_data[:, 1]
+        tmpr = aux_data[:, 2]
+        dev = aux_data[:, 3]
+        rtype = aux_data[:, 4]
+        clen = aux_data[:, 5]
         for ifil in range(len(f)):
             cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())
-            if cur_data[0, 0] < 1000:
+            if rtype[ifil] == 0: #cur_data[0, 0] < 1000:
                 cur_data[:, 0] = cur_data[:, 0] * 1000.
             ax[ifil].plot(cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]), 'ro')
+            ax[ifil].text(0.8, 0.8, str(p_self[ifil]), ha='center', va='center', transform=ax[ifil].transAxes)
             #ax = plt.subplot(ifil, cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]))
         #print(fnames)
         #spectra_info()
         return fig
+
+    @output
+    @render.text
+    @reactive.event(input.b_preview)
+    def preview_status():
+        text_status = ''
+        if input.input_files() is None:
+            text_status += 'Load spectra. '
+        if input.aux_data() is None:
+            text_status += 'Load pressures etc. '
+        if input.partition() is None:
+            text_status += 'Load partition. '
+        if len(text_status)==0:
+            text_status = 'All data present, see your preview'
+        return text_status
+
 
 
 
