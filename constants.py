@@ -10,9 +10,12 @@ k_vs_aem = 0.120272478907E-3  # atomic mass unit [kg] divided by k_B [J/K]
 c2 = 1.4388  # cm*K c2 = hc/k_B for intensity calcs
 t_ref = 296.  # reference temperature, K
 
-n_const_par = 2  # number of common parameters for all the recordings in batch
+mhz_in_cm = 29979.25 # recalc factor from 1/cm to MHz and back
 
-n_add_par = 2  # number of individual parameters of a separate recording
+npar = 12  # number of common parameters for all the recordings in batch
+nauxpar = 5 # number of auxilary params
+
+# n_add_par = 2  # number of individual parameters of a separate recording
 
 single_params_dict = {"frq":"Central freq",
                       "int":"Intensity",
