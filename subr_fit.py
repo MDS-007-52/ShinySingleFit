@@ -35,13 +35,11 @@ def fit_params(x_in: np.ndarray,
         model1 = modelf(x_in, cur_params) # calculated absorption at initial parameters
     else:
         model1 = modelf(x_in, cur_params, aux_params) # calculated absorption at initial parameters
-    #plt.plot(x_in - params0[0], y_in - model1, 'r-')
-    #plt.title('Initial obs-calc difference')
-    #plt.show()
+
     rms1 = np.sqrt(np.sum((y_in - model1) ** 2))  # RMS of the measured-minus-calc difference at initial parameters
-    print('Initial rms within fit procedure: ', rms1)
-    print('Initial parameters')
-    print(cur_params)
+    # print('Initial rms within fit procedure: ', rms1)
+    # print('Initial parameters')
+    # print(cur_params)
 
     k = 0  # outer iteration number
     f_end = False  # flag of fit ending
@@ -53,7 +51,7 @@ def fit_params(x_in: np.ndarray,
             jac = jacobi(x_in, jac_flag, cur_params)
         else:
             jac = jacobi(x_in, jac_flag, cur_params, aux_params)
-        print('FIT step = ', k, 'substep = ', i, ', jacobi done')
+        # print('FIT step = ', k, 'substep = ', i, ', jacobi done')
         f_step = False  # flag of parameters step is done
         while not f_step:
             # Levenberg-Markquardt method to calc the step of the params to less residual
@@ -64,43 +62,43 @@ def fit_params(x_in: np.ndarray,
             am2 = scipy.linalg.inv(am1)  #np.linalg.inv(am1)
             steparams = np.matmul(am2, av)  # step of parameters due to Leven-Mark method
             tmp_params = steparams + cur_params
-            print('Params step:')
-            print(steparams)
-            print('Next params:')
-            print(tmp_params)
-            print('FIT step = ', k, 'substep = ', i, ', calcuating new residual')
+            # print('Params step:')
+            # print(steparams)
+            # print('Next params:')
+            # print(tmp_params)
+            # print('FIT step = ', k, 'substep = ', i, ', calcuating new residual')
             if aux_params is None:
                 model1 = modelf(x_in, tmp_params)  # model calc for new parameters
             else:
                 model1 = modelf(x_in, tmp_params, aux_params)  # model calc for new parameters
             rms2 = np.sqrt(np.sum((y_in - model1) ** 2))
-            print('old rms = ', rms1, '   new rms = ', rms2, '   lambda = ', ap)
-            print('relative difference = ', abs((rms2 - rms1) / rms1))
+            # print('old rms = ', rms1, '   new rms = ', rms2, '   lambda = ', ap)
+            # print('relative difference = ', abs((rms2 - rms1) / rms1))
             if rms2 < rms1:  # case when new residual is smaller
                 if abs((rms2 - rms1) / rms1) > fit_precision:  # change of rms is great enough
-                    print('next rms is smaller, STEP FORWARD')
+                    # print('next rms is smaller, STEP FORWARD')
                     f_step = True
                     cur_params += steparams
                     rms1 = rms2
                 elif abs((rms2 - rms1) / rms1) <= fit_precision:  # change of rms is smaller then threshold
-                    print('next rms is smaller, but change is less than threshold, fit STOP')
+                    # print('next rms is smaller, but change is less than threshold, fit STOP')
                     cur_params += steparams
                     rms1 = rms2
                     f_step = True
                     f_end = True
             elif rms2 >= rms1:
                 if abs((rms2 - rms1) / rms1) < fit_precision:
-                    print('next rms is greater, but change is less than threshold, fit STOP')
+                    # print('next rms is greater, but change is less than threshold, fit STOP')
                     f_step = True
                     f_end = True
                 elif abs((rms2 - rms1) / rms1) > fit_precision:
                     if i <= iter_limit:
                         ap = ap * lmstep
-                        print('next rms is greater, change LAMBDA and repeat')
+                        # print('next rms is greater, change LAMBDA and repeat')
                     if i > iter_limit:
                         f_end = True
                         f_step = True
-                        print('can"t converge to a solution, BREAK')
+                        # print('can"t converge to a solution, BREAK')
             i += 1
         k += 1
     return cur_params

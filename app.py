@@ -4,6 +4,7 @@ from shiny import *  # App, Inputs, Outputs, Session, render, ui
 # import ipywidgets as widgets
 # import ipysheet
 import numpy as np
+from pathlib import Path
 import math
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -252,6 +253,9 @@ def server(input, output, session):
         rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VIC)
 
+        params_out = np.empty((len(f), 3+npar))
+        params_temp = np.empty(3+npar)
+
         # read data for partition sum calculations for line strength
         part_data = np.loadtxt(input.partition()[0]["datapath"],
                                dtype='float', comments='#', delimiter=None,
@@ -314,9 +318,20 @@ def server(input, output, session):
             qual_fit = int(np.max(cur_data[:, 1]) / np.std(cur_data[:, 1] - model1))
 
             ax[ifil].text(0.8, 0.8, 'Q = '+str(qual_fit), ha='center', va='center', transform=ax[ifil].transAxes)
+            params_temp[0] = p_self[ifil]
+            params_temp[1] = p_for[ifil]
+            params_temp[2] = tmpr[ifil]
+            print(len(params_temp))
+            params_temp[3:3+npar] = params1[:]
+            print(params_temp)
+            params_out[ifil, :] = params_temp[:]
             # ax = plt.subplot(ifil, cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]))
         # print(fnames)
         # spectra_info()
+        print('all the parameters vs P and T together:')
+        print(params_out)
+        path = str(Path(__file__).parent / 'params_out.txt')
+        np.savetxt(path, params_out)
         return fig
 
     # @render_widget

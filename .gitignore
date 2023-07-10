@@ -3,3 +3,4 @@ venv/
 _aux/
 Thumbs.db
 __pycache__/
+params_out.txt
