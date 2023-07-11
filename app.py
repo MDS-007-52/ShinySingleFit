@@ -31,7 +31,7 @@ app_ui = ui.page_fluid(
                          ui.input_checkbox_group("jac_check", "",
                                                  single_params_dict, selected=list(single_params_dict.keys())),
                          ui.input_action_button("b_check", "Check"),
-                         ui.output_text("jac_flag_out")
+                         ui.output_text_verbatim("jac_flag_out", placeholder=True)
                          ),
         ui.panel_main(ui.h4("Parameters and coefficients for initial values"),
                       ui.row(
@@ -97,7 +97,28 @@ def server(input, output, session):
     # this shows the recordings markup info
     # aux_out = pd.DataFrame()
 
-    all_aux_data: reactive.Value[np.ndarray] = np.empty((5, 1), float)
+    #all_aux_data: reactive.Value[np.ndarray] = np.empty((5, 1), float)
+    recording = reactive.Value[list]
+    residuals = reactive.Value[list]
+
+    @reactive.Effect
+    @reactive.event(input.input_files)
+    def _():
+        tmp_recs = []
+        f: list[FileInfo] = input.input_files()
+        for ifil in range(len(f)):
+            cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())
+            tmp_recs.append(cur_data)
+        #recording.set(tmp_recs)
+        recording.set(value=[1, 2, 3.14, 'test'], self=__self__)
+
+    @output
+    @render.text
+    def jac_flag_out():
+        if input.input_files() is None:
+            return '__00__00__'
+        return str(recording.get())
+
 
     @output
     @render.ui
@@ -109,22 +130,22 @@ def server(input, output, session):
         return ui.HTML(aux_out.to_html(classes="table table-striped"))
 
     # check literally anything which is going inside my code
-    @output
-    @render.text
-    @reactive.event(input.b_check)
-    def jac_flag_out():
-        # print([int(elem in input.jac_check()) for elem in single_params_dict])
-        # return [int(elem in input.jac_check()) for elem in single_params_dict]
-        aux_out = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0) \
-            .to_numpy(dtype=float)
-        # return aux_out.to_numpy()[:, 0]
-        p_self = aux_out[:, 0]
-        p_for = aux_out[:, 1]
-        tmpr = aux_out[:, 2]
-        foo = np.empty(len(p_self))
-        for i in range(len(p_self)):
-            foo[i] = (input.g0() * p_self[i] + input.g0f() * p_for[i]) * (t_ref / tmpr[i]) ** input.ngam()
-        return foo
+    # @output
+    # @render.text
+    # @reactive.event(input.b_check)
+    # def jac_flag_out():
+    #     # print([int(elem in input.jac_check()) for elem in single_params_dict])
+    #     # return [int(elem in input.jac_check()) for elem in single_params_dict]
+    #     aux_out = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0) \
+    #         .to_numpy(dtype=float)
+    #     # return aux_out.to_numpy()[:, 0]
+    #     p_self = aux_out[:, 0]
+    #     p_for = aux_out[:, 1]
+    #     tmpr = aux_out[:, 2]
+    #     foo = np.empty(len(p_self))
+    #     for i in range(len(p_self)):
+    #         foo[i] = (input.g0() * p_self[i] + input.g0f() * p_for[i]) * (t_ref / tmpr[i]) ** input.ngam()
+    #     return foo
 
     # this shows the preview of the loaded spectra ("Preview" button)
     @output
