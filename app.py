@@ -97,9 +97,13 @@ def server(input, output, session):
     # this shows the recordings markup info
     # aux_out = pd.DataFrame()
 
-    #all_aux_data: reactive.Value[np.ndarray] = np.empty((5, 1), float)
-    recording = reactive.Value[list]
-    residuals = reactive.Value[list]
+    #all_aux_data: reactive.Value[np.ndarray] = np.empty((5, 1), float)    
+    residuals: reactive.Value[list] = reactive.Value([])
+    recording: reactive.Value[list] = reactive.Value([])
+    f_aux = reactive.Value(False)
+    f_part = reactive.Value(False)
+    f_preview = reactive.Value(False)
+    f_fit = reactive.Value(False)
 
     @reactive.Effect
     @reactive.event(input.input_files)
@@ -109,16 +113,27 @@ def server(input, output, session):
         for ifil in range(len(f)):
             cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())
             tmp_recs.append(cur_data)
-        #recording.set(tmp_recs)
-        recording.set(value=[1, 2, 3.14, 'test'], self=__self__)
+        #test_reactive_val.set([1337, 3.14, 'test'])
+        recording.set(tmp_recs)
+        if (f_aux.get() and f_part.get()):
+            f_preview.set(True)
+
+    @reactive.Effect
+    @reactive.event(input.aux_data)
+    def _():
+        if not (input.aux_data() is None):
+            f_aux.set(True)
+
+    @reactive.Effect
+    @reactive.event(input.partition)
+    def _():
+        if not (input.partition() is None):
+            f_part.set(True)
 
     @output
     @render.text
     def jac_flag_out():
-        if input.input_files() is None:
-            return '__00__00__'
-        return str(recording.get())
-
+        return str(f_preview.get()) + str(f_aux.get()) + str(f_part.get())
 
     @output
     @render.ui
