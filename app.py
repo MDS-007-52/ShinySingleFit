@@ -142,7 +142,7 @@ def server(input, output, session):
     def jac_flag_out():
         #return str(f_preview.get()) + str(f_aux.get()) + str(f_part.get())
         if f_fit.get():
-            return str(params_fit.get())
+            return str(params_fit.get()[:, 0])
 
     @output
     @render.ui
@@ -272,6 +272,7 @@ def server(input, output, session):
     @reactive.Effect
     @reactive.event(input.b_fit) # within this func we get the parameters fitted to each loaded profile
     def _():
+        f_fit.set(False)
         # load the list of files with spectra
         f: list[FileInfo] = input.input_files()
         # f has fields: name, size, type, datapath
@@ -289,6 +290,8 @@ def server(input, output, session):
         params_temp = np.empty(3+npar)  # array of params for a chosen recording
 
         params_out_aux = np.empty((len(f), nauxpar)) # this array will be transferred to reactive value array
+
+        resid_out = []
 
         # read data for partition sum calculations for line strength
         part_data = np.loadtxt(input.partition()[0]["datapath"],
@@ -343,6 +346,12 @@ def server(input, output, session):
 
             model1 = mdl(cur_data[:, 0], params1, aux_params=params_aux0)
 
+            resid1 = cur_data[:, 1] - model1[:]
+            frq1 = np.copy(cur_data[:, 0])
+            resid1_to_out = np.stack((frq1, resid1), axis=1)
+
+            resid_out.append(resid1_to_out)
+
             if rtype[ifil] == 0:
                 frq_scale = 1.e-3
             else:
@@ -359,7 +368,29 @@ def server(input, output, session):
 
         params_fit.set(params_out)
         params_fit_aux.set(params_out_aux)
+        residuals.set(resid_out)
         f_fit.set(True)
+
+    @output
+    @render.plot(alt='Fit residuals')
+    def preview_fit():
+        if f_fit.get():
+            f: list[FileInfo] = input.input_files()
+            fig, ax = plt.subplots(1, len(f), sharey=True)
+            for ifil in range(len(f)):
+                if params_fit_aux.get()[ifil, -1] == 0:
+                    tmp_xlabel = 'Frequency detuning, GHz'
+                    tmp_frq_scale = 1.E-3
+                else:
+                    tmp_xlabel = 'Frequency detuning, MHz'
+                    tmp_frq_scale = 1.
+
+                ax[ifil].plot((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale,
+                              residuals.get()[ifil][:, 1],
+                              'b-')
+
+                ax[ifil].set_xlabel(tmp_xlabel)
+            return fig
 
 
     # @output
