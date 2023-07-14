@@ -40,7 +40,7 @@ app_ui = ui.page_fluid(
                           ui.column(4, ui.input_numeric("molm", "Molecular mass, a.m.u.", value=28.))
                       ),
                       ui.row(
-                          ui.column(3, ui.input_numeric("f0", "Line center, MHz", value=115271.)),
+                          ui.column(3, ui.input_numeric("f0", "Line center, MHz", value=115271.202)),
                           ui.column(3, ui.input_numeric("ngam", "T-dep power", value=0.75)
                                     ),
                           ui.row(
@@ -87,6 +87,10 @@ app_ui = ui.page_fluid(
     ui.input_action_button("b_fit", "Fit model to recordings"),
     ui.output_text("fit_status"),
     ui.output_plot("preview_fit"),
+    ui.row(ui.column(3, ui.input_switch('s_foreign', "Foreign pressure")),
+           ui.column(3, ui.input_switch('s_normself', "Norm. to self P")),
+           ui.column(4, ui.input_numeric('f0_shift', "Unshifted center", value=115271.202))),
+    ui.input_action_button("b_coefs", "Plot p-dependencies"),
     ui.output_ui("fit_result_table")
 )
 
@@ -148,28 +152,16 @@ def server(input, output, session):
     @render.ui
     def aux_data_show():
         if input.aux_data() is None:
-            return "Upload a file with recordings conditions"
+            return "Upload a file with recordings conditions. It should contain columns: " \
+                   "filename, self pressure (Torr), foreign pressure (Torr), temperature (K)," \
+                   "frq deviation (MHz; 0 if not applicable), recording type, cell length (cm; 1 if not applicable). " \
+                   "Record types codes: 0 - resonator (deviation = 0), 1 - RAD with freq. manipulation " \
+                   "(deviation should be non-zero), " \
+                   "2 - video with freq. manipulation (deviation should be non-zero), 3 - video with amplitude" \
+                   "modulation (deviation = 0)."
         aux_file: list[FileInfo] = input.aux_data()
         aux_out = pd.read_csv(aux_file[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
         return ui.HTML(aux_out.to_html(classes="table table-striped"))
-
-    # check literally anything which is going inside my code
-    # @output
-    # @render.text
-    # @reactive.event(input.b_check)
-    # def jac_flag_out():
-    #     # print([int(elem in input.jac_check()) for elem in single_params_dict])
-    #     # return [int(elem in input.jac_check()) for elem in single_params_dict]
-    #     aux_out = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0) \
-    #         .to_numpy(dtype=float)
-    #     # return aux_out.to_numpy()[:, 0]
-    #     p_self = aux_out[:, 0]
-    #     p_for = aux_out[:, 1]
-    #     tmpr = aux_out[:, 2]
-    #     foo = np.empty(len(p_self))
-    #     for i in range(len(p_self)):
-    #         foo[i] = (input.g0() * p_self[i] + input.g0f() * p_for[i]) * (t_ref / tmpr[i]) ** input.ngam()
-    #     return foo
 
     # this shows the preview of the loaded spectra ("Preview" button)
     @output
