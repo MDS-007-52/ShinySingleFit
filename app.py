@@ -91,7 +91,8 @@ app_ui = ui.page_fluid(
            ui.column(3, ui.input_switch('s_normself', "Norm. to self P")),
            ui.column(4, ui.input_numeric('f0_shift', "Unshifted center", value=115271.202))),
     ui.input_action_button("b_coefs", "Plot p-dependencies"),
-    ui.output_ui("fit_result_table")
+    ui.output_ui("fit_result_table"),
+    ui.output_plot("preview_params")
 )
 
 
@@ -104,12 +105,13 @@ def server(input, output, session):
     #all_aux_data: reactive.Value[np.ndarray] = np.empty((5, 1), float)    
     residuals: reactive.Value[list] = reactive.Value([])
     recording: reactive.Value[list] = reactive.Value([])
-    f_aux = reactive.Value(False)
-    f_part = reactive.Value(False)
-    f_preview = reactive.Value(False)
-    f_fit = reactive.Value(False)
-    params_fit: reactive.Value[list] = reactive.Value([])
-    params_fit_aux: reactive.Value[list] = reactive.Value([])
+    f_aux = reactive.Value(False)  # flag that aux info loaded
+    f_part = reactive.Value(False)  # flag that partition function is loaded
+    f_preview = reactive.Value(False)  # flag that spectra are loaded and preview is available
+    f_fit = reactive.Value(False)  # flag that fit is finished
+    params_fit: reactive.Value[list] = reactive.Value([])  # globally available params from fit
+    uncert_fit: reactive.Value[list] = reactive.Value([])  # globally available uncertainties
+    params_fit_aux: reactive.Value[list] = reactive.Value([])  # globally available aux params (see model function)
 
     @reactive.Effect
     @reactive.event(input.input_files)
@@ -279,7 +281,9 @@ def server(input, output, session):
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VIC)
 
         params_out = np.empty((len(f), 3+npar))  # array of params for all the recordings
+        uncert_out = np.empty((len(f), 3+npar))
         params_temp = np.empty(3+npar)  # array of params for a chosen recording
+        uncert_temp = np.empty(3+npar)
 
         params_out_aux = np.empty((len(f), nauxpar)) # this array will be transferred to reactive value array
 
@@ -336,6 +340,10 @@ def server(input, output, session):
             params1 = fit_params(cur_data[:, 0], cur_data[:, 1], params0, mdl, mdljac, jac_flag,
                                  1.e-4, 1.e-12, 1.e4, 10, aux_params=params_aux0)
 
+            uncert_1 = fit_uncertainties(cur_data[:, 0], cur_data[:, 1],
+                                         params1, mdl, mdljac, jac_flag,
+                                         aux_params=params_aux0)
+
             model1 = mdl(cur_data[:, 0], params1, aux_params=params_aux0)
 
             resid1 = cur_data[:, 1] - model1[:]
@@ -357,6 +365,12 @@ def server(input, output, session):
             params_temp[2] = tmpr[ifil]
             params_temp[3:3+npar] = params1[:]
             params_out[ifil, :] = params_temp[:]
+
+            uncert_temp[0] = p_self[ifil]
+            uncert_temp[1] = p_for[ifil]
+            uncert_temp[2] = tmpr[ifil]
+            uncert_temp[3:3+npar] = params1[:]
+            uncert_out[ifil, :] = params_temp[:]
 
         params_fit.set(params_out)
         params_fit_aux.set(params_out_aux)
@@ -384,116 +398,36 @@ def server(input, output, session):
                 ax[ifil].set_xlabel(tmp_xlabel)
             return fig
 
+    @output
+    @render_plot(alt='Parameters vs pressure')
+    @reactive.event(input.b_coefs)
+    def preview_params():
+        if not f_fit.get():
+            fig, ax = plt.subplots()
+            ax.text(0.5, 0.5, "Press FIT button first to get parameters")
+        fig, ax = plt.subplots(1, 4, sharey=False)
 
-    # @output
-    # @render.plot(alt='fit residuals')
-    # #@reactive.event(input.b_fit)
-    # def preview_fit():
-    #     text_status = ''
-    #     if input.input_files() is None:
-    #         text_status += 'Load spectra. '
-    #     if input.aux_data() is None:
-    #         text_status += 'Load pressures etc. '
-    #     if input.partition() is None:
-    #         text_status += 'Load partition. '
-    #     if len(text_status) > 0:
-    #         fig, ax = plt.subplots()
-    #         ax = plt.text(0.5, 0.5, text_status, ha='center', va='center', transform=ax.transAxes)
-    #         return fig
-    #     # read the list of the loaded filenames etc
-    #     f: list[FileInfo] = input.input_files()
-    #     fig, ax = plt.subplots(1, len(f), sharey=True)
-    #     print('length of files dataset is ', len(f), ' files')
-    #     # f has fields: name, size, type, datapath
-    #     aux_df = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
-    #     aux_data = aux_df.to_numpy(dtype=float)
-    #     p_self = aux_data[:, 0]  # self pressure, Torr
-    #     p_for = aux_data[:, 1]  # foreign pressure, Torr
-    #     tmpr = aux_data[:, 2]  # temperature, K
-    #     dev = aux_data[:, 3]  # frq deviation where applicable, MHz (for RAD and VID)
-    #     rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
-    #     clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VIC)
-    #
-    #     params_out = np.empty((len(f), 3+npar))
-    #     params_temp = np.empty(3+npar)
-    #
-    #     # read data for partition sum calculations for line strength
-    #     part_data = np.loadtxt(input.partition()[0]["datapath"],
-    #                            dtype='float', comments='#', delimiter=None,
-    #                            unpack=False)  # partition data for intensity
-    #
-    #     for ifil in range(len(f)):
-    #         cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())
-    #         if rtype[ifil] == 0:  # cur_data[0, 0] < 1000: # CAV recordings is usually in GHz and 1/cm
-    #             # we convert it to MHz and 1/km
-    #             cur_data[:, 0] = cur_data[:, 0] * 1000.
-    #             cur_data[:, 1] = cur_data[:, 1] * 1.e+5
-    #
-    #         # calculate initial parameters based on the values specified above, pressures and temperatures
-    #         params0 = np.empty(npar)
-    #         aux_params0 = np.empty(nauxpar)
-    #         params0[0] = input.f0()  # center
-    #         params0[1] = 1.  # I scale
-    #         t_dep = (t_ref / tmpr[ifil]) ** input.ngam()  # T-factor for collisional params
-    #         params0[2] = (input.g0() * p_self[ifil] + input.g0f() * p_for[ifil]) * t_dep  # G0
-    #         params0[3] = (input.g2() * p_self[ifil] + input.g2f() * p_for[ifil]) * t_dep  # G2
-    #         params0[4] = (input.d2() * p_self[ifil] + input.d2f() * p_for[ifil]) * t_dep  # D2
-    #         params0[5] = (input.y0() * p_self[ifil] + input.y0f() * p_for[ifil]) * t_dep  # Y
-    #         params0[6] = (input.nu() * p_self[ifil] + input.nuf() * p_for[ifil])  # Dicke parameter
-    #         params0[7:] = 0.  # some hardware-related params (and non-resonant, if applicable
-    #
-    #         # auxilary params
-    #         strength = qpart(tmpr[ifil], t_ref, part_data[:, 0], part_data[:, 1]) \
-    #                    * math.exp(-c2 * input.elow() / tmpr[ifil]) \
-    #                    * (1 - math.exp(-c2 * input.f0() / (tmpr[ifil] * mhz_in_cm))) \
-    #                    / math.exp(-c2 * input.elow() / t_ref) \
-    #                    / (1 - math.exp(-c2 * input.f0() / (t_ref * mhz_in_cm)))
-    #         strength *= input.I0() * p_self[ifil] * k_st * 1.e-25 / tmpr[ifil]  # absolute line integral intensity
-    #         if rtype[ifil] == 0:
-    #             strength *= 1.e05  # 1/cm to 1/km for CAV recordings
-    #         aux_params0[0] = strength
-    #         aux_params0[1] = (input.f0() / clight) \
-    #                          * math.sqrt(2 * math.log(2.) * tmpr[ifil] / (input.molm() * k_vs_aem))  # dopler width
-    #         aux_params0[2] = dev[ifil]  # deviation
-    #         aux_params0[3] = clen[ifil]  # cell length
-    #         aux_params0[-1] = rtype[ifil]  # recording type
-    #
-    #         # model with initial parameters
-    #         model0 = mdl(cur_data[:, 0], params0, aux_params=aux_params0)
-    #
-    #         jac_flag = [int(elem in input.jac_check()) for elem in single_params_dict]
-    #
-    #         params1 = fit_params(cur_data[:, 0], cur_data[:, 1], params0, mdl, mdljac, jac_flag,
-    #                              1.e-4, 1.e-12, 1.e4, 10, aux_params=aux_params0)
-    #
-    #         model1 = mdl(cur_data[:, 0], params1, aux_params=aux_params0)
-    #
-    #         if rtype[ifil] == 0:
-    #             frq_scale = 1.e-3
-    #         else:
-    #             frq_scale = 1.
-    #         ax[ifil].plot((cur_data[:, 0] - params1[0]) * frq_scale,
-    #                       cur_data[:, 1] - model1,
-    #                       'b-')
-    #
-    #         qual_fit = int(np.max(cur_data[:, 1]) / np.std(cur_data[:, 1] - model1))
-    #
-    #         ax[ifil].text(0.8, 0.8, 'Q = '+str(qual_fit), ha='center', va='center', transform=ax[ifil].transAxes)
-    #         params_temp[0] = p_self[ifil]
-    #         params_temp[1] = p_for[ifil]
-    #         params_temp[2] = tmpr[ifil]
-    #         print(len(params_temp))
-    #         params_temp[3:3+npar] = params1[:]
-    #         print(params_temp)
-    #         params_out[ifil, :] = params_temp[:]
-    #         # ax = plt.subplot(ifil, cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]))
-    #     # print(fnames)
-    #     # spectra_info()
-    #     print('all the parameters vs P and T together:')
-    #     print(params_out)
-    #     path = str(Path(__file__).parent / 'params_out.txt')
-    #     np.savetxt(path, params_out)
-    #     return fig
+        p_self = params_fit.get()[:, 0]
+        p_foreign = params_fit.get()[:, 1]
+
+        f0 = params_fit.get()[:, 4]
+        g0 = params_fit.get()[:, 5]
+        g2 = params_fit.get()[:, 6]
+        y0 = params_fit.get()[:, 8]
+
+        points_style = 'ro'
+
+        if input.s_normself():
+            pnorm = p_foreign[:]/p_self[:]
+            ax[0].plot(pnorm, f0 - input.f0_shift(), points_style)
+            ax[1].plot(pnorm, g0, points_style)
+            ax[2].plot(pnorm, g2, points_style)
+            ax[3].plot(pnorm, y0, points_style)
+
+        return fig
+
+
+
 
     # @render_widget
     # def spectra_info():
