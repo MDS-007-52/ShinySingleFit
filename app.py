@@ -121,7 +121,6 @@ def server(input, output, session):
         for ifil in range(len(f)):
             cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())
             tmp_recs.append(cur_data)
-        #test_reactive_val.set([1337, 3.14, 'test'])
         recording.set(tmp_recs)
         if f_aux.get() and f_part.get():
             f_preview.set(True)
@@ -264,7 +263,7 @@ def server(input, output, session):
         return text_status
 
     @reactive.Effect
-    @reactive.event(input.b_fit) # within this func we get the parameters fitted to each loaded profile
+    @reactive.event(input.b_fit)  # within this func we get the parameters fitted to each loaded profile
     def _():
         f_fit.set(False)
         # load the list of files with spectra
@@ -293,7 +292,6 @@ def server(input, output, session):
         part_data = np.loadtxt(input.partition()[0]["datapath"],
                                dtype='float', comments='#', delimiter=None,
                                unpack=False)  # partition data for intensity
-
 
         for ifil in range(len(f)):
             cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment()) # recording read from file
@@ -352,11 +350,6 @@ def server(input, output, session):
 
             resid_out.append(resid1_to_out)
 
-            if rtype[ifil] == 0:
-                frq_scale = 1.e-3
-            else:
-                frq_scale = 1.
-
             # qual_fit = int(np.max(cur_data[:, 1]) / np.std(cur_data[:, 1] - model1))
             # ax[ifil].text(0.8, 0.8, 'Q = '+str(qual_fit), ha='center', va='center', transform=ax[ifil].transAxes)
 
@@ -369,11 +362,12 @@ def server(input, output, session):
             uncert_temp[0] = p_self[ifil]
             uncert_temp[1] = p_for[ifil]
             uncert_temp[2] = tmpr[ifil]
-            uncert_temp[3:3+npar] = params1[:]
-            uncert_out[ifil, :] = params_temp[:]
+            uncert_temp[3:3+npar] = uncert_1[:]
+            uncert_out[ifil, :] = uncert_temp[:]
 
         params_fit.set(params_out)
         params_fit_aux.set(params_out_aux)
+        uncert_fit.set(uncert_out)
         residuals.set(resid_out)
         f_fit.set(True)
 
@@ -397,14 +391,20 @@ def server(input, output, session):
 
                 ax[ifil].set_xlabel(tmp_xlabel)
             return fig
+        else:
+            fig, ax = plt.subplots()
+            ax.text(0.5, 0.5, 'No residuals to show')
+            return fig
 
     @output
-    @render_plot(alt='Parameters vs pressure')
+    @render.plot(alt='Parameters vs pressure')
     @reactive.event(input.b_coefs)
     def preview_params():
         if not f_fit.get():
             fig, ax = plt.subplots()
             ax.text(0.5, 0.5, "Press FIT button first to get parameters")
+            return fig
+
         fig, ax = plt.subplots(1, 4, sharey=False)
 
         p_self = params_fit.get()[:, 0]
@@ -415,14 +415,63 @@ def server(input, output, session):
         g2 = params_fit.get()[:, 6]
         y0 = params_fit.get()[:, 8]
 
+        f0e = uncert_fit.get()[:, 4]
+        g0e = uncert_fit.get()[:, 5]
+        g2e = uncert_fit.get()[:, 6]
+        y0e = uncert_fit.get()[:, 8]
+
         points_style = 'ro'
+        line_style = 'k-'
 
         if input.s_normself():
             pnorm = p_foreign[:]/p_self[:]
-            ax[0].plot(pnorm, f0 - input.f0_shift(), points_style)
-            ax[1].plot(pnorm, g0, points_style)
-            ax[2].plot(pnorm, g2, points_style)
-            ax[3].plot(pnorm, y0, points_style)
+
+            gam0_coefs, gam0_cov = np.polyfit(pnorm, g0, deg=1, rcond=None, full=False, w=1./g0e[:]**2, cov=True)
+            gam0_self = [gam0_coefs[1], np.sqrt(gam0_cov[1, 1])]
+            gam0_for = [gam0_coefs[0], np.sqrt(gam0_cov[0, 0])]
+
+            gam2_coefs, gam_cov = np.polyfit(pnorm, g0, 1, rcond=None, full=False, w=1./g2e[:]**2, cov=True)
+            gam2_self = [gam2_coefs[1], np.sqrt(gam_cov[1, 1])]
+            gam2_for = [gam2_coefs[0], np.sqrt(gam_cov[0, 0])]
+
+            y0_coefs, y0_cov = np.polyfit(pnorm, y0, 1, rcond=None, full=False, w=1./y0e[:]**2, cov=True)
+            y0_self = [y0_coefs[1], np.sqrt(y0_cov[1, 1])]
+            y0_for = [y0_coefs[0], np.sqrt(y0_cov[0, 0])]
+
+            # ax[0].errorbar(pnorm, f0 - input.f0_shift(), xerr=None, yerr=f0e, fmt=points_style)
+            #
+            # ax[0].set_xlabel('P_self/P_foreign')
+            # ax[0].set_ylabel('Center freq. shift, MHz')
+
+            ax[1].errorbar(pnorm, g0, xerr=None, yerr=g0e, fmt=points_style)
+            ax[1].plot(pnorm, gam0_self[0] + pnorm * gam0_for[0], line_style)
+            ax[1].set_xlabel('P_self/P_foreign')
+            ax[1].set_ylabel('Gamma_0, MHz')
+            ax[1].text(0.1, 0.9, 'Self-broadening: %.3f(%0.f) MHz/Torr' % (gam0_self[0], gam0_self[1]*1.E3),
+                       ha='center', va='center', transform=ax[1].transAxes)
+            ax[1].text(0.1, 0.8, 'Foreign-broadening: %.3f(%0.f) MHz/Torr' % (gam0_for[0], gam0_for[1]*1.E3),
+                       ha='center', va='center', transform=ax[1].transAxes)
+
+            # ax[2].errorbar(pnorm, g2, xerr=None, yerr=g2e, marker=points_style)
+            # ax[2].plot(pnorm, gam2_self[0] + pnorm * gam2_for, line_style)
+            # ax[2].set_xlabel('P_self/P_foreign')
+            # ax[2].set_ylabel('Gamma_2, MHz')
+            #
+            # ax[2].text(0.1, 0.9, 'Self-broadening SD: %.3f(%0.f) MHz/Torr' % (gam2_self[0], gam2_self[1]*1.E3),
+            #            ha='center', va='center', transform=ax[2].transAxes)
+            # ax[2].text(0.1, 0.8, 'Foreign-broadening SD: %.3f(%0.f) MHz/Torr' % (gam2_for[0], gam2_for[1]*1.E3),
+            #        ha='center', va='center', transform=ax[2].transAxes)
+            #
+            # ax[3].errorbar(pnorm, y0, xerr=None, yerr=y0e, marker=points_style)
+            # ax[1].plot(pnorm, y0_self[0] + pnorm * y0_for, line_style)
+            # ax[3].set_xlabel('P_self/P_foreign')
+            # ax[3].set_ylabel('Mixing parameter, unitless')
+            #
+            # ax[3].text(0.1, 0.9, 'Self-mixing: %.3f(%0.f)*1E-6 1/Torr' % (y0_self[0]*1E6, y0_self[1]*1.E9),
+            #            ha='center', va='center', transform=ax[2].transAxes)
+            # ax[3].text(0.1, 0.8, 'Foreign-mixing: %.3f(%0.f)*1E-6 1/Torr' % (y0_for[0]*1E6, y0_for[1]*1.E9),
+            #        ha='center', va='center', transform=ax[2].transAxes)
+
 
         return fig
 
