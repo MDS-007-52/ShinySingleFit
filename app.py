@@ -90,19 +90,18 @@ app_ui = ui.page_fluid(
     ui.output_ui("fit_result_table"),
     ui.row(ui.column(3, ui.input_switch('s_foreign', "Foreign pressure")),
            ui.column(3, ui.input_switch('s_normself', "Norm. to self P")),
-           ui.column(4, ui.input_numeric('f0_shift', "Unshifted center", value=115271.202))),
-    ui.input_action_button("b_coefs", "Plot p-dependencies"),
-    ui.output_plot("preview_params")
+           ui.column(4, ui.input_numeric('f0_shift', "Unshifted center", value=115271.202)),
+           ui.column(3, ui.input_action_button("b_coefs", "Plot vs pressure")),
+           ui.column(3, ui.download_button("download_params", "Download results"))
+           ),
+
+    ui.output_plot("preview_params", height="1200px")
 )
-
-
-#
 
 def server(input, output, session):
     # this shows the recordings markup info
     # aux_out = pd.DataFrame()
 
-    #all_aux_data: reactive.Value[np.ndarray] = np.empty((5, 1), float)    
     residuals: reactive.Value[list] = reactive.Value([])
     recording: reactive.Value[list] = reactive.Value([])
     f_aux = reactive.Value(False)  # flag that aux info loaded
@@ -380,6 +379,14 @@ def server(input, output, session):
         residuals.set(resid_out)
         f_fit.set(True)
 
+    @session.download(filename='fit_params.txt')
+    def download_params():
+        if f_fit.get():
+            headers = list(single_params_dict.values())
+            headers = ['P self', 'P foreign', 'T'] + headers
+            params_show = pd.DataFrame(params_fit.get(), columns=headers)
+            return params_show
+
     @output
     @render.plot(alt='Fit residuals')
     def preview_fit():
@@ -394,7 +401,7 @@ def server(input, output, session):
                     tmp_xlabel = 'Frequency detuning, MHz'
                     tmp_frq_scale = 1.
 
-                q_factor = np.max(recording.get()[ifil][:, 1]) / np.std(residuals.get()[ifil][:, 1], axis=0)
+                q_factor = np.max(recording.get()[ifil][:, 1]) / np.std(residuals.get()[ifil][:, 1], axis=None)
 
                 ax[ifil].text(0.2, 0.6, 'Q = '+str(round(q_factor)),
                               ha='center', va='center', transform=ax[ifil].transAxes)
