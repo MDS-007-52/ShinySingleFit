@@ -98,6 +98,7 @@ app_ui = ui.page_fluid(
     ui.output_plot("preview_params", height="1200px")
 )
 
+
 def server(input, output, session):
     # this shows the recordings markup info
     # aux_out = pd.DataFrame()
@@ -140,11 +141,10 @@ def server(input, output, session):
         if f_aux.get() and f_part.get() and not (input.input_files() is None):
             f_preview.set(True)
 
-
     @output
     @render.text
     def jac_flag_out():
-        #return str(f_preview.get()) + str(f_aux.get()) + str(f_part.get())
+        # return str(f_preview.get()) + str(f_aux.get()) + str(f_part.get())
         if f_fit.get():
             return str(params_fit.get()[:, 0])
 
@@ -287,12 +287,12 @@ def server(input, output, session):
         rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VIC)
 
-        params_out = np.empty((len(f), 3+npar))  # array of params for all the recordings
-        uncert_out = np.empty((len(f), 3+npar))
-        params_temp = np.empty(3+npar)  # array of params for a chosen recording
-        uncert_temp = np.empty(3+npar)
+        params_out = np.empty((len(f), 3 + npar))  # array of params for all the recordings
+        uncert_out = np.empty((len(f), 3 + npar))
+        params_temp = np.empty(3 + npar)  # array of params for a chosen recording
+        uncert_temp = np.empty(3 + npar)
 
-        params_out_aux = np.empty((len(f), nauxpar)) # this array will be transferred to reactive value array
+        params_out_aux = np.empty((len(f), nauxpar))  # this array will be transferred to reactive value array
 
         resid_out = []
 
@@ -302,7 +302,7 @@ def server(input, output, session):
                                unpack=False)  # partition data for intensity
 
         for ifil in range(len(f)):
-            cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment()) # recording read from file
+            cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())  # recording read from file
             if rtype[ifil] == 0:  # cur_data[0, 0] < 1000: # CAV recordings is usually in GHz and 1/cm
                 # we convert it to MHz and 1/km
                 cur_data[:, 0] = cur_data[:, 0] * 1000.
@@ -364,13 +364,13 @@ def server(input, output, session):
             params_temp[0] = p_self[ifil]
             params_temp[1] = p_for[ifil]
             params_temp[2] = tmpr[ifil]
-            params_temp[3:3+npar] = params1[:]
+            params_temp[3:3 + npar] = params1[:]
             params_out[ifil, :] = params_temp[:]
 
             uncert_temp[0] = p_self[ifil]
             uncert_temp[1] = p_for[ifil]
             uncert_temp[2] = tmpr[ifil]
-            uncert_temp[3:3+npar] = uncert_1[:]
+            uncert_temp[3:3 + npar] = uncert_1[:]
             uncert_out[ifil, :] = uncert_temp[:]
 
         params_fit.set(params_out)
@@ -383,9 +383,19 @@ def server(input, output, session):
     def download_params():
         if f_fit.get():
             headers = list(single_params_dict.values())
-            headers = ['P self', 'P foreign', 'T'] + headers
-            params_show = pd.DataFrame(params_fit.get(), columns=headers)
-            return params_show
+            headers = ['#P self', 'P foreign', 'T'] + headers + ['\n']
+            yield '    '.join(headers)
+            params_array = np.asarray(params_fit.get())
+            for i in range(params_array.shape[0]):
+                params_row = params_array[i, :]
+                yield '    '.join(['%15.10g' % elem for elem in params_row] + ['\n'])
+
+        # headers = list(single_params_dict.values())
+        # headers = ['# P self', 'P foreign', 'T'] + headers + ['\n']
+        # yield '    '.join(headers)
+        # for i in range(5):
+        #     tmp_data = [25., 125., 296.5, 3250., 318., 0., 7.975e-6]
+        #     yield '    '.join(['%.5g' % elem for elem in tmp_data] + ['\n'] )
 
     @output
     @render.plot(alt='Fit residuals')
@@ -403,7 +413,7 @@ def server(input, output, session):
 
                 q_factor = np.max(recording.get()[ifil][:, 1]) / np.std(residuals.get()[ifil][:, 1], axis=None)
 
-                ax[ifil].text(0.2, 0.6, 'Q = '+str(round(q_factor)),
+                ax[ifil].text(0.2, 0.6, 'Q = ' + str(round(q_factor)),
                               ha='center', va='center', transform=ax[ifil].transAxes)
 
                 ax[ifil].plot((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale,
@@ -445,26 +455,29 @@ def server(input, output, session):
         g0e = uncert_fit.get()[:, 5] + 1.E-10
         g2e = uncert_fit.get()[:, 6] + 1.E-15
         y0e = uncert_fit.get()[:, 8] + 1.E-15
-        cce = uncert_fit.get()[:, 13]+1.E-25
+        cce = uncert_fit.get()[:, 13] + 1.E-25
 
         points_style = 'ro'
         line_style = 'k-'
 
         if input.s_normself():
-            pnorm = p_foreign[:]/p_self[:]
+            pnorm = p_foreign[:] / p_self[:]
 
-            gam0_coefs, gam0_cov = np.polyfit(pnorm, g0[:]/p_self[:], deg=1, rcond=None, full=False, w=1./g0e[:]**2, cov=True)
+            gam0_coefs, gam0_cov = np.polyfit(pnorm, g0[:] / p_self[:], deg=1, rcond=None, full=False,
+                                              w=1. / g0e[:] ** 2, cov=True)
             gam0_self = [gam0_coefs[1], np.sqrt(gam0_cov[1, 1])]
             gam0_for = [gam0_coefs[0], np.sqrt(gam0_cov[0, 0])]
 
-            gam2_coefs, gam2_cov = np.polyfit(pnorm, g2[:]/p_self[:], 1, rcond=None, full=False, w=1./g2e[:]**2, cov=True)
+            gam2_coefs, gam2_cov = np.polyfit(pnorm, g2[:] / p_self[:], 1, rcond=None, full=False, w=1. / g2e[:] ** 2,
+                                              cov=True)
             gam2_self = [gam2_coefs[1], np.sqrt(gam2_cov[1, 1])]
             gam2_for = [gam2_coefs[0], np.sqrt(gam2_cov[0, 0])]
 
-            y0_coefs, y0_cov = np.polyfit(pnorm, y0[:]/p_self[:], 1, rcond=None, full=False, w=1./y0e[:]**2, cov=True)
+            y0_coefs, y0_cov = np.polyfit(pnorm, y0[:] / p_self[:], 1, rcond=None, full=False, w=1. / y0e[:] ** 2,
+                                          cov=True)
             y0_self = [y0_coefs[1], np.sqrt(y0_cov[1, 1])]
             y0_for = [y0_coefs[0], np.sqrt(y0_cov[0, 0])]
-            
+
             ind_f0 = 0
             ind_y = 1
             ind_g0 = 2
@@ -472,56 +485,53 @@ def server(input, output, session):
             ind_i0 = 4
             ind_c = 5
 
-            ax[ind_f0].errorbar(pnorm, (f0[:] - input.f0_shift())/p_self[:],
-                                xerr=None, yerr=f0e[:]/p_self[:],
+            ax[ind_f0].errorbar(pnorm, (f0[:] - input.f0_shift()) / p_self[:],
+                                xerr=None, yerr=f0e[:] / p_self[:],
                                 fmt=points_style)
             ax[ind_f0].set_xlabel('P_foreign/P_self')
             ax[ind_f0].set_ylabel('Center freq. shift/P_self, MHz/Torr')
 
-            ax[ind_g0].errorbar(pnorm, g0[:]/p_self[:],
-                                xerr=None, yerr=g0e[:]/p_self[:],
+            ax[ind_g0].errorbar(pnorm, g0[:] / p_self[:],
+                                xerr=None, yerr=g0e[:] / p_self[:],
                                 fmt=points_style)
             ax[ind_g0].plot(pnorm, gam0_self[0] + pnorm * gam0_for[0], line_style)
             ax[ind_g0].set_xlabel('P_foreign/P_self')
             ax[ind_g0].set_ylabel('Gamma_0/P_self, MHz/Torr')
-            ax[ind_g0].text(0.5, 0.9, 'S: %.3f(%0.f) MHz/Torr' % (gam0_self[0], gam0_self[1]*1.E3),
-                       ha='center', va='center', transform=ax[ind_g0].transAxes)
-            ax[ind_g0].text(0.5, 0.8, 'F: %.3f(%0.f) MHz/Torr' % (gam0_for[0], gam0_for[1]*1.E3),
-                       ha='center', va='center', transform=ax[ind_g0].transAxes)
+            ax[ind_g0].text(0.5, 0.9, 'S: %.3f(%0.f) MHz/Torr' % (gam0_self[0], gam0_self[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_g0].transAxes)
+            ax[ind_g0].text(0.5, 0.8, 'F: %.3f(%0.f) MHz/Torr' % (gam0_for[0], gam0_for[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_g0].transAxes)
 
-            ax[ind_g2].errorbar(pnorm, g2[:]/p_self[:],
-                                xerr=None, yerr=g2e[:]/p_self[:],
+            ax[ind_g2].errorbar(pnorm, g2[:] / p_self[:],
+                                xerr=None, yerr=g2e[:] / p_self[:],
                                 fmt=points_style)
             ax[ind_g2].plot(pnorm, gam2_self[0] + pnorm * gam2_for[0], line_style)
             ax[ind_g2].set_xlabel('P_foreign/P_self')
             ax[ind_g2].set_ylabel('Gamma_2/P_self, MHz/Torr')
-            ax[ind_g2].text(0.5, 0.9, 'S: %.3f(%0.f) MHz/Torr' % (gam2_self[0], gam2_self[1]*1.E3),
-                       ha='center', va='center', transform=ax[ind_g2].transAxes)
-            ax[ind_g2].text(0.5, 0.8, 'F: %.3f(%0.f) MHz/Torr' % (gam2_for[0], gam2_for[1]*1.E3),
-                   ha='center', va='center', transform=ax[ind_g2].transAxes)
+            ax[ind_g2].text(0.5, 0.9, 'S: %.3f(%0.f) MHz/Torr' % (gam2_self[0], gam2_self[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_g2].transAxes)
+            ax[ind_g2].text(0.5, 0.8, 'F: %.3f(%0.f) MHz/Torr' % (gam2_for[0], gam2_for[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_g2].transAxes)
 
-            ax[ind_y].errorbar(pnorm, y0[:]/p_self[:], xerr=None, yerr=y0e[:]/p_self[:], fmt=points_style)
+            ax[ind_y].errorbar(pnorm, y0[:] / p_self[:], xerr=None, yerr=y0e[:] / p_self[:], fmt=points_style)
             ax[ind_y].plot(pnorm, y0_self[0] + pnorm * y0_for[0], line_style)
             ax[ind_y].set_xlabel('P_foreign/P_self')
             ax[ind_y].set_ylabel('Mixing parameter/P_self, 1/Torr')
 
-            ax[ind_y].text(0.5, 0.9, 'S: %.3f(%0.f)*1E-6 1/Torr' % (y0_self[0]*1E6, y0_self[1]*1.E9),
-                       ha='center', va='center', transform=ax[ind_y].transAxes)
-            ax[ind_y].text(0.5, 0.8, 'F: %.3f(%0.f)*1E-6 1/Torr' % (y0_for[0]*1E6, y0_for[1]*1.E9),
-                   ha='center', va='center', transform=ax[ind_y].transAxes)
+            ax[ind_y].text(0.5, 0.9, 'S: %.3f(%0.f)*1E-6 1/Torr' % (y0_self[0] * 1E6, y0_self[1] * 1.E9),
+                           ha='center', va='center', transform=ax[ind_y].transAxes)
+            ax[ind_y].text(0.5, 0.8, 'F: %.3f(%0.f)*1E-6 1/Torr' % (y0_for[0] * 1E6, y0_for[1] * 1.E9),
+                           ha='center', va='center', transform=ax[ind_y].transAxes)
 
-            ax[ind_i0].errorbar(p_self[:]/(kB*tmpr[:]), i0, xerr=None, yerr=i0e, fmt=points_style)
+            ax[ind_i0].errorbar(p_self[:] / (kB * tmpr[:]), i0, xerr=None, yerr=i0e, fmt=points_style)
             ax[ind_i0].set_xlabel('Absorber concentration, 1/m^3')
             ax[ind_i0].set_ylabel('Intensity correction, unitless')
 
-            ax[ind_c].errorbar(pnorm, cc[:]/p_self[:]**2, xerr=None, yerr=cce[:]/p_self[:]**2, fmt=points_style)
+            ax[ind_c].errorbar(pnorm, cc[:] / p_self[:] ** 2, xerr=None, yerr=cce[:] / p_self[:] ** 2, fmt=points_style)
             ax[ind_c].set_xlabel('P_foreign/P_self')
             ax[ind_c].set_ylabel('Continuum parameter')
 
         return fig
-
-
-
 
     # @render_widget
     # def spectra_info():
