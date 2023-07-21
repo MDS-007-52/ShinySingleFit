@@ -386,12 +386,25 @@ def server(input, output, session):
     def download_params():
         if f_fit.get():
             headers = list(single_params_dict.values())
-            headers = ['#P self', 'P foreign', 'T'] + headers + ['\n']
-            yield '    '.join(headers)
+            headers = [elem.replace(' ', '_') for elem in headers]
+            headers_err = [elem + '_err' for elem in headers]
+            headers_with_err = []
+            for i_head in range(len(headers)):
+                headers_with_err.append(headers[i_head])
+                headers_with_err.append(headers_err[i_head])
+            headers = ['#P_self', 'P_foreign', 'T'] + headers_with_err  # + ['\n']
+            headers = [elem.ljust(15) for elem in headers]
+            yield ' '.join(headers + ['\n'])
             params_array = np.asarray(params_fit.get())
+            uncert_array = np.asarray(uncert_fit.get())
             for i in range(params_array.shape[0]):
                 params_row = params_array[i, :]
-                yield '    '.join(['%15.10g' % elem for elem in params_row] + ['\n'])
+                uncert_row = uncert_array[i, :]
+                output_row = np.empty(3 + 2 * npar)
+                output_row[0: 3] = params_row[0: 3]
+                output_row[3::2] = params_row[3::]
+                output_row[4::2] = uncert_row[3::]
+                yield ' '.join([('%15.10g' % elem).ljust(15) for elem in output_row] + ['\n'])
 
         # headers = list(single_params_dict.values())
         # headers = ['# P self', 'P foreign', 'T'] + headers + ['\n']
