@@ -1,4 +1,4 @@
-#global kB, clight, pi, k_vs_aem, k_st, c2, hP, m_aem, t_ref
+# global kB, clight, pi, k_vs_aem, k_st, c2, hP, m_aem, t_ref
 
 hP = 6.62607004E-34
 m_aem = 1.6605402E-27
@@ -10,22 +10,22 @@ k_vs_aem = 0.120272478907E-3  # atomic mass unit [kg] divided by k_B [J/K]
 c2 = 1.4388  # cm*K c2 = hc/k_B for intensity calcs
 t_ref = 296.  # reference temperature, K
 
-mhz_in_cm = 29979.25 # recalc factor from 1/cm to MHz and back
+mhz_in_cm = 29979.25  # recalc factor from 1/cm to MHz and back
 
 npar = 12  # number of common parameters for all the recordings in batch
-nauxpar = 5 # number of auxilary params
+nauxpar = 5  # number of auxilary params
 
 # n_add_par = 2  # number of individual parameters of a separate recording
 
-single_params_dict = {"frq":"Central freq",
-                      "int":"Intensity",
-                      "g0":"Gamma 0",
-                      "g2":"Gamma 2",
-                      "d2":"Delta 2",
-                      "y":"Mixing",
-                      "nuvc":"Vel.chng.rate",
-                      "pow":"Power factor",
-                      "bl0":"Baseline 0",
-                      "bl1":"Baseline 1",
-                      "bl2":"Baseline 2",
-                      "bl3":"Baseline 3"}
+single_params_dict = {"frq": "Central freq",
+                      "int": "Intensity",
+                      "g0": "Gamma 0",
+                      "g2": "Gamma 2",
+                      "d2": "Delta 2",
+                      "y": "Mixing",
+                      "nuvc": "Vel.chng.rate",
+                      "pow": "Power factor",
+                      "bl0": "Baseline 0",
+                      "bl1": "Baseline 1",
+                      "bl2": "Baseline 2",
+                      "bl3": "Baseline 3"}

@@ -84,6 +84,9 @@ app_ui = ui.page_fluid(
     ),
     ui.output_plot("preview_data"),
     ui.output_text("preview_status"),
+
+    # an interface for fitting the model to the spectra and visualisation of the result
+
     ui.input_action_button("b_fit", "Fit model to recordings"),
     ui.output_text("fit_status"),
     ui.output_plot("preview_fit"),
@@ -100,8 +103,8 @@ app_ui = ui.page_fluid(
 
 
 def server(input, output, session):
-    # this shows the recordings markup info
-    # aux_out = pd.DataFrame()
+
+    # some global variables which are visible from any part of the server code
 
     residuals: reactive.Value[list] = reactive.Value([])
     recording: reactive.Value[list] = reactive.Value([])
@@ -109,9 +112,9 @@ def server(input, output, session):
     f_part = reactive.Value(False)  # flag that partition function is loaded
     f_preview = reactive.Value(False)  # flag that spectra are loaded and preview is available
     f_fit = reactive.Value(False)  # flag that fit is finished
-    params_fit: reactive.Value[list] = reactive.Value([])  # globally available params from fit
-    uncert_fit: reactive.Value[list] = reactive.Value([])  # globally available uncertainties
-    params_fit_aux: reactive.Value[list] = reactive.Value([])  # globally available aux params (see model function)
+    params_fit: reactive.Value[list] = reactive.Value([])  # params from fit
+    uncert_fit: reactive.Value[list] = reactive.Value([])  # uncertainties
+    params_fit_aux: reactive.Value[list] = reactive.Value([])  # aux params (see model function)
 
     @reactive.Effect
     @reactive.event(input.input_files)
@@ -192,7 +195,7 @@ def server(input, output, session):
         # read the list of the loaded filenames etc
         f: list[FileInfo] = input.input_files()
         fig, ax = plt.subplots(1, len(f), sharey=True)
-        print('length of files dataset is ', len(f), ' files')
+        # print('length of files dataset is ', len(f), ' files')
         # f has fields: name, size, type, datapath
         aux_df = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
         aux_data = aux_df.to_numpy(dtype=float)
@@ -411,10 +414,18 @@ def server(input, output, session):
                     tmp_xlabel = 'Frequency detuning, MHz'
                     tmp_frq_scale = 1.
 
-                q_factor = np.max(recording.get()[ifil][:, 1]) / np.std(residuals.get()[ifil][:, 1], axis=None)
+                q_factor = max(recording.get()[ifil][:, 1]) / np.std(residuals.get()[ifil][:, 1])
 
-                ax[ifil].text(0.2, 0.6, 'Q = ' + str(round(q_factor)),
+                if params_fit_aux.get()[ifil, -1] == 0:
+                    q_factor *= 1.e5
+
+                ax[ifil].text(0.2, 0.8, 'Q = ' + str(round(q_factor)),
                               ha='center', va='center', transform=ax[ifil].transAxes)
+
+                ax[ifil].hlines(0.,
+                                min((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
+                                max((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
+                                linestyles='dashed', colors='grey')
 
                 ax[ifil].plot((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale,
                               residuals.get()[ifil][:, 1],

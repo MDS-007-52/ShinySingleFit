@@ -1,6 +1,7 @@
 import numpy as np
 import scipy
 
+
 def fit_params(x_in: np.ndarray,
                y_in: np.ndarray,
                params0: np.ndarray,
@@ -12,29 +13,28 @@ def fit_params(x_in: np.ndarray,
                lmstep: float,
                iter_limit: int,
                aux_params: np.ndarray = None) -> np.ndarray:
-    # x_in - vector of x values (np.array)
-    # y_in - vector of y values (np.array)
-    # params0 - vector of params (np.array)
-    # modelf - name of the function
-    # jacobi - name of the jacobian function (partial derivatives of modelf at each x_in value)
-    # == modelf should have x_in (array) and params (array) as an arguments, returns len(x_in) array
-    # == jacobi should have x_in (array), jac_flag (array) and params (array, len(params)==len(jac_flag))
-    # as an arguments, returns len(params)*len(x_in) list/array
-    # jac_flag - list of 0 and 1s showing which parameter is adjustable and which is left constant
-    # fit_precision - relative precision for RMS to stop the iterations (if RMS relative change
-    # is less than fit_precision, the fit procedure stops )
-    # lmstart - starting value of lambda in Levenberg-Marquardt method
-    # lmstep - multiplier for lambda in case of too big step of the parameters
-    # iter_limit - max number of iterations to decide that fit does not converge
-    # aux_params - some additional conditions modelf and jacobi may have
-    # (e.g., pressure and temperature to calculate line intensity, or list of P, T and other additional things
-    # which are used in multifit procedure)
+    """
+    This function fits params of the specially constructed model function modelf to make it fit the best (with minimum
+    standard deviation of the difference) to the experimental data (x_in, y_in)
+    :param x_in: vector of x values
+    :param y_in: vector of y values
+    :param params0: vector of initial params
+    :param modelf: name of the model function
+    :param jacobi: name of the jacobian function (partial derivatives of modelf by each parameter at each x_in value)
+    :param jac_flag: list of 0 and 1s showing which parameter is adjustable and which is left constant
+    :param fit_precision: relative precision for RMS to stop the iterations (if RMS relative change is less than fit_precision, the fit procedure stops )
+    :param lmstart: starting value of lambda in Levenberg-Marquardt method
+    :param lmstep: multiplier for lambda in case of too big step of the parameters
+    :param iter_limit: max number of iterations to decide that fit does not converge
+    :param aux_params: some additional conditions modelf and jacobi may have (e.g., pressure and temperature to calculate line intensity, or list of P, T and other additional things which are used in fit procedure)
+    :return: vector of parameters, the same size as params0
+    """
 
     cur_params = np.copy(params0)  # current params
     if aux_params is None:
-        model1 = modelf(x_in, cur_params) # calculated absorption at initial parameters
+        model1 = modelf(x_in, cur_params)  # calculated absorption at initial parameters
     else:
-        model1 = modelf(x_in, cur_params, aux_params) # calculated absorption at initial parameters
+        model1 = modelf(x_in, cur_params, aux_params)  # calculated absorption at initial parameters
 
     rms1 = np.sqrt(np.sum((y_in - model1) ** 2))  # RMS of the measured-minus-calc difference at initial parameters
     # print('Initial rms within fit procedure: ', rms1)
@@ -58,15 +58,15 @@ def fit_params(x_in: np.ndarray,
             am1 = ap * np.eye(len(params0)) + np.matmul(jac.T, jac)
             resid1 = y_in - model1
             av = np.matmul(jac.T, resid1)
-            #am2 = np.linalg.inv(am1)
-            am2 = scipy.linalg.inv(am1)  #np.linalg.inv(am1)
+            # am2 = np.linalg.inv(am1)
+            am2 = scipy.linalg.inv(am1)  # np.linalg.inv(am1)
             steparams = np.matmul(am2, av)  # step of parameters due to Leven-Mark method
             tmp_params = steparams + cur_params
             # print('Params step:')
             # print(steparams)
             # print('Next params:')
             # print(tmp_params)
-            # print('FIT step = ', k, 'substep = ', i, ', calcuating new residual')
+            # print('FIT step = ', k, 'substep = ', i, ', calculating new residual')
             if aux_params is None:
                 model1 = modelf(x_in, tmp_params)  # model calc for new parameters
             else:
@@ -111,23 +111,23 @@ def fit_uncertainties(x_in: np.ndarray,
                       jacobi,
                       jac_flag: np.ndarray,
                       aux_params: np.ndarray = None) -> np.ndarray:
-    # x_in - vector of x values (np.array)
-    # y_in - vector of y values (np.array)
-    # params0 - vector of params given by fit_params routine (np.array)
-    # modelf - name of the function
-    # jacobi - name of the jacobian function (partial derivatives of modelf at each x_in value)
-    # == modelf should have x_in (array) and params (array) as an arguments, returns len(x_in) array
-    # == jacobi should have x_in (array), jac_flag (array) and params (array, len(params)==len(jac_flag))
-    # as an arguments, returns len(params)*len(x_in) list/array
-    # jac_flag - list of 0 and 1s showing which parameter is adjustable and which is left constant
-    # aux_params - some additional conditions modelf and jacobi may have
-    # (e.g., pressure and temperature to calculate line intensity, or list of P, T and other additional things
-    # which are used in multifit procedure)
+    """
+    This function calculates uncertainties of the parameters defined by fit_params function
+    All the params of this function should be the same that used for fit_params, except for the params0
+    :param x_in: vector of x values
+    :param y_in: vector of y values
+    :param params0: vector of params given by fit_params function
+    :param modelf: name of the model function
+    :param jacobi: name of the jacobian function
+    :param jac_flag:  list of 0 and 1s showing which parameter is adjustable and which is left constant
+    :param aux_params: some additional conditions modelf and jacobi may have
+    :return: vector of the same size as params0 containing uncertainties of the corresponding parameters
+    """
 
     if aux_params is None:
-        model1 = modelf(x_in, params0) # calculated absorption at initial parameters
+        model1 = modelf(x_in, params0)  # calculated absorption at initial parameters
     else:
-        model1 = modelf(x_in, params0, aux_params) # calculated absorption at initial parameters
+        model1 = modelf(x_in, params0, aux_params)  # calculated absorption at initial parameters
 
     if aux_params is None:
         jac = jacobi(x_in, jac_flag, params0)
