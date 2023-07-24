@@ -8,6 +8,7 @@ from pathlib import Path
 import math
 from matplotlib import pyplot as plt
 import pandas as pd
+import time
 
 # from SDRP import SDRP
 from fitmodels import *
@@ -116,6 +117,17 @@ def server(input, output, session):
     uncert_fit: reactive.Value[list] = reactive.Value([])  # uncertainties
     params_fit_aux: reactive.Value[list] = reactive.Value([])  # aux params (see model function)
 
+    @output
+    @render.text
+    @reactive.event(input.b_check)
+    def jac_flag_out():
+        p = ui.Progress(min=0, max=10)
+        #with ui.Progress(min=0, max=10) as p:
+        for i in range(10):
+            p.set(i, message='Test!')
+            time.sleep(1)
+        p.close()
+
     @reactive.Effect
     @reactive.event(input.input_files)
     def _():
@@ -144,12 +156,12 @@ def server(input, output, session):
         if f_aux.get() and f_part.get() and not (input.input_files() is None):
             f_preview.set(True)
 
-    @output
-    @render.text
-    def jac_flag_out():
-        # return str(f_preview.get()) + str(f_aux.get()) + str(f_part.get())
-        if f_fit.get():
-            return str(params_fit.get()[:, 0])
+    # @output
+    # @render.text
+    # def jac_flag_out():
+    #     # return str(f_preview.get()) + str(f_aux.get()) + str(f_part.get())
+    #     if f_fit.get():
+    #         return str(params_fit.get()[:, 0])
 
     @output
     @render.ui
@@ -303,8 +315,9 @@ def server(input, output, session):
         part_data = np.loadtxt(input.partition()[0]["datapath"],
                                dtype='float', comments='#', delimiter=None,
                                unpack=False)  # partition data for intensity
-
+        p = ui.Progress(min=0, max=len(f))
         for ifil in range(len(f)):
+            p.set(ifil, message='Fit in progress')
             cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())  # recording read from file
             if rtype[ifil] == 0:  # cur_data[0, 0] < 1000: # CAV recordings is usually in GHz and 1/cm
                 # we convert it to MHz and 1/km
@@ -381,6 +394,7 @@ def server(input, output, session):
         uncert_fit.set(uncert_out)
         residuals.set(resid_out)
         f_fit.set(True)
+        p.close()
 
     @session.download(filename='fit_params.txt')
     def download_params():
