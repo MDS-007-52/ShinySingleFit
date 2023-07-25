@@ -1,3 +1,4 @@
+! file HTP.f90
 	subroutine 	HTP(sg0,GamD,Gam0,Gam2,Shift0,Shift2,anuVC,eta,sg,LS_pCqSDHC_R,LS_pCqSDHC_I)
 !-------------------------------------------------
 !	"pCqSDHC": partially-Correlated quadratic-Speed-Dependent Hard-Collision
@@ -33,17 +34,19 @@
 !
 !-------------------------------------------------
 	implicit none
-	 double precision sg0,GamD
-	 double precision Gam0,Gam2,anuVC,eta,Shift0,Shift2
-	 double precision sg
-	 double precision pi,rpi,cte
-	 double precision xz1,xz2,yz1,yz2,xXb,yXb
-	 double precision wr1,wi1,wr2,wi2,wrb,wib
-	 double precision SZ1,SZ2,DSZ,SZmx,SZmn
-	 double precision LS_pCqSDHC_R,LS_pCqSDHC_I
+	double precision sg0,GamD
+	double precision Gam0,Gam2,anuVC,eta,Shift0,Shift2
+	double precision sg
+	double precision pi,rpi,cte
+	double precision xz1,xz2,yz1,yz2,xXb,yXb
+	double precision wr1,wi1,wr2,wi2,wrb,wib
+	double precision SZ1,SZ2,DSZ,SZmx,SZmn
+	double precision LS_pCqSDHC_R,LS_pCqSDHC_I
 	double complex c0,c2,c0t,c2t
 	double complex X,Y,iz,Z1,Z2
 	double complex Aterm,Bterm,LS_pCqSDHC
+!f2py	intent(in) sg0,GamD,Gam0,Gam2,Shift0,Shift2,anuVC,eta,sg
+!f2py	intent(out) LS_pCqSDHC_R,LS_pCqSDHC_I
 !
 !-------------------------------------------------
 !
@@ -144,3 +147,168 @@
    
       Return
       End Subroutine HTP
+
+	Subroutine CPF(X,Y,WR,WI)
+	!-------------------------------------------------
+	! "CPF": Complex Probability Function
+	! .........................................................
+	!         .       Subroutine to Compute the Complex       .
+	!         .        Probability Function W(z=X+iY)         .
+	!         .     W(z)=exp(-z**2)*Erfc(-i*z) with Y>=0      .
+	!         .    Which Appears when Convoluting a Complex   .
+	!         .     Lorentzian Profile by a Gaussian Shape    .
+	!         .................................................
+	!
+	!             WR : Real Part of W(z)
+	!             WI : Imaginary Part of W(z)
+	!
+	! This Routine was Taken from the Paper by J. Humlicek, which
+	! is Available in Page 309 of Volume 21 of the 1979 Issue of
+	! the Journal of Quantitative Spectroscopy and Radiative Transfer
+	! Please Refer to this Paper for More Information
+	!
+	! Accessed Files:  None
+	! --------------
+	!
+	! Called Routines: None
+	! ---------------
+	!
+	! Called By: 'CompAbs' (COMPute ABSorpton)
+	! ---------
+	!
+	! Double Precision Version
+	!
+	!-------------------------------------------------
+	!
+	Implicit None
+	Integer I
+	double complex zm1,zm2,zterm,zsum,zone,zi
+	Double Precision X,Y,WR,WI
+	Double Precision T,U,S,Y1,Y2,Y3,R,R2,D,D1,D2,D3,D4
+	Double Precision TT(15),pipwoeronehalf
+	!
+	Dimension T(6),U(6),S(6)
+	Data T/.314240376d0,.947788391d0,1.59768264d0,2.27950708d0,3.02063703d0,3.8897249d0/
+	Data U/1.01172805d0,-.75197147d0,1.2557727d-2,1.00220082d-2,-2.42068135d-4,5.00848061d-7/
+	Data S/1.393237d0,.231152406d0,-.155351466d0,6.21836624d-3,9.19082986d-5,-6.27525958d-7/
+	Data zone,zi/(1.d0,0.D0),(0.d0,1.D0)/
+	data tt/0.5d0,1.5d0,2.5d0,3.5d0,4.5d0,5.5d0,6.5d0,7.5d0,8.5d0,9.5d0,10.5d0,11.5d0,12.5d0,13.5d0,14.5d0/
+	data pipwoeronehalf/0.564189583547756d0/
+
+	! new Region 3
+	if(dsqrt(x*x+y*Y).gt.8.D0)then
+		zm1=zone/dcmplx(x,y)
+		zm2=zm1*zm1
+		zsum=zone
+		zterm=zone
+		do i=1,15
+			zterm=zterm*zm2*tt(i)
+			zsum=zsum+zterm
+		end do
+		zsum=zsum*zi*zm1*pipwoeronehalf
+		wr=dreal(zsum)
+		wi=dimag(zsum)
+		return
+	end if
+	!
+	WR=0.d0
+	WI=0.d0
+	Y1=Y+1.5d0
+	Y2=Y1*Y1
+	If( (Y.GT.0.85d0) .OR. (DABS(X).LT.(18.1d0*Y+1.65d0)) )GoTo 2
+	!
+	!       Region 2
+	!
+	If( DABS(X).LT.12.d0 )WR=DEXP(-X*X)
+	Y3=Y+3.d0
+	Do 1 I=1,6
+		R=X-T(I)
+		R2=R*R
+		D=1.d0/(R2+Y2)
+		D1=Y1*D
+		D2=R*D
+		WR=WR+Y*(U(I)*(R*D2-1.5d0*D1)+S(I)*Y3*D2)/(R2+2.25d0)
+		R=X+T(I)
+		R2=R*R
+		D=1.d0/(R2+Y2)
+		D3=Y1*D
+		D4=R*D
+		WR=WR+Y*(U(I)*(R*D4-1.5d0*D3)-S(I)*Y3*D4)/(R2+2.25d0)
+		WI=WI+U(I)*(D2+D4)+S(I)*(D1-D3)
+	1    Continue
+	Return
+	!
+	!       Region 1
+	!
+	2    Continue
+	Do 3 I=1,6
+		R=X-T(I)
+		D=1.d0/(R*R+Y2)
+		D1=Y1*D
+		D2=R*D
+		R=X+T(I)
+		D=1.d0/(R*R+Y2)
+		D3=Y1*D
+		D4=R*D
+		WR=WR+U(I)*(D1+D3)-S(I)*(D2-D4)
+		WI=WI+U(I)*(D2+D4)+S(I)*(D1-D3)
+	3    Continue
+	Return
+	End Subroutine CPF
+
+
+	Subroutine CPF3(X,Y,WR,WI)
+	!-------------------------------------------------
+	! "CPF": Complex Probability Function
+	! .........................................................
+	!         .       Subroutine to Compute the Complex       .
+	!         .        Probability Function W(z=X+iY)         .
+	!         .     W(z)=exp(-z**2)*Erfc(-i*z) with Y>=0      .
+	!         .    Which Appears when Convoluting a Complex   .
+	!         .     Lorentzian Profile by a Gaussian Shape    .
+	!         .................................................
+	!
+	!             WR : Real Part of W(z)
+	!             WI : Imaginary Part of W(z)
+	!
+	! This Routine takes into account the region 3 only, i.e. when sqrt(x**2+y**2)>8.
+	!
+	! Accessed Files:  None
+	! --------------
+	!
+	! Called Routines: None
+	! ---------------
+	!
+	! Called By: 'pCqSDHC'
+	! ---------
+	!
+	! Double Precision Version
+	!
+	!-------------------------------------------------
+	!
+	Implicit None
+	Integer I
+	double complex zm1,zm2,zterm,zsum,zone,zi
+	Double Precision X,Y,WR,WI
+	Double Precision TT(15),pipwoeronehalf
+	!
+	Data zone,zi/(1.d0,0.D0),(0.d0,1.D0)/
+	data tt/0.5d0,1.5d0,2.5d0,3.5d0,4.5d0,5.5d0,6.5d0,7.5d0,8.5d0,9.5d0,10.5d0,11.5d0,12.5d0,13.5d0,14.5d0/
+	data pipwoeronehalf/0.564189583547756d0/
+
+	! Region 3
+	zm1=zone/dcmplx(x,y)
+	zm2=zm1*zm1
+	zsum=zone
+	zterm=zone
+	do i=1,15
+		zterm=zterm*zm2*tt(i)
+		zsum=zsum+zterm
+	end do
+	zsum=zsum*zi*zm1*pipwoeronehalf
+	wr=dreal(zsum)
+	wi=dimag(zsum)
+	return
+	End Subroutine CPF3
+
+! end file HTP.f90
