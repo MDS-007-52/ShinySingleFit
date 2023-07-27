@@ -22,8 +22,8 @@ def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarr
         # for ifr in range(len(frq)):
         #    absor[ifr] = SDRP(frq[ifr], params[0], params[5], params[2], params[3], 0., params[4], aux_params[0]) \
         #                 * params[1]
-        absor, absor1 = htp(params[0], 1.e-6, params[2], params[3], 0.,
-                            params[4], 1.e-6, 0., frq, Ylm=params[5])
+        absor, absor1 = htp(params[0], aux_params[1], params[2], params[3], 0.,
+                            params[4], params[6], 0., frq, Ylm=params[5])
         absor[:] *= aux_params[0] * params[1] * (frq[:]/params[0])**2
     absor = absor * (1 + params[7] * (frq - params[0])) \
             + params[8] + params[9] * (frq - params[0]) + params[10] * frq ** 2 \
