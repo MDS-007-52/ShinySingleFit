@@ -1,6 +1,7 @@
 import numpy as np
 from SDRP import SDRP
 from htp import htp
+from dif_htp import dif_htp
 
 
 def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
@@ -19,14 +20,17 @@ def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarr
     absor = np.empty_like(frq)
     absor1 = np.empty_like(frq)
     if aux_params[-1] == 0:
+        # old code for using hones integration form of the SDRP profile for resonator recordings at high pressure
         # for ifr in range(len(frq)):
         #    absor[ifr] = SDRP(frq[ifr], params[0], params[5], params[2], params[3], 0., params[4], aux_params[0]) \
         #                 * params[1]
         absor, absor1 = htp(params[0], aux_params[1], params[2], params[3], 0.,
                             params[4], params[6], 0., frq, Ylm=params[5])
         absor[:] *= aux_params[0] * params[1] * (frq[:]/params[0])**2
-    absor = absor * (1 + params[7] * (frq - params[0])) \
-            + params[8] + params[9] * (frq - params[0]) + params[10] * frq ** 2 \
+    if aux_params[-1] in [1, 2]:
+        absor = dif_htp(frq, params[0], aux_params[1], params[2], params[3], 0.,
+                        params[4], params[6], aux_params[0], aux_params[2], params[1], params[7], aux_params[-1])
+    absor = absor + params[8] + params[9] * (frq - params[0]) + params[10] * frq ** 2 \
             + params[11] * (frq - params[0]) ** 3
     return absor
 
@@ -41,7 +45,7 @@ def mdljac(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params
             params2 = np.copy(params)
             params2[ipar] = params2[ipar] + dpar
             model2 = mdl(frq, params2, aux_params=aux_params)
-            jac[ipar] = (model2 - model1) * 1.E6
+            jac[ipar] = (model2 - model1) / dpar
 
     # derivative by vertical scale is just profile with params[1] == 1
 
@@ -54,6 +58,12 @@ def mdljac(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params
 
     if aux_params[-1] == 0:
         jac[7] = 0.
+    else:
+        if jac_flag[7] == 1:
+            params2 = np.copy(params)
+            params2[7] = params2[7] + dpar
+            model2 = mdl(frq, params2, aux_params=aux_params)
+            jac[7] = (model2 - model1) / dpar
 
     if jac_flag[8] == 1.:
         jac[8] = 1.

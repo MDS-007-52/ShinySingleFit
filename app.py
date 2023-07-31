@@ -213,7 +213,7 @@ def server(input, output, session):
         aux_data = aux_df.to_numpy(dtype=float)
         p_self = aux_data[:, 0]  # self pressure, Torr
         p_for = aux_data[:, 1]  # foreign pressure, Torr
-        tmpr = aux_data[:, 2]  # temperature, K
+        tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
         dev = aux_data[:, 3]  # frq deviation where applicable, MHz (for RAD and VID)
         rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VIC)
@@ -234,7 +234,7 @@ def server(input, output, session):
             params0 = np.empty(npar)
             aux_params0 = np.empty(nauxpar)
             params0[0] = input.f0()  # center
-            params0[1] = 1.  # I scale
+            params0[1] = 1.
             t_dep = (t_ref / tmpr[ifil]) ** input.ngam()  # T-factor for collisional params
             params0[2] = (input.g0() * p_self[ifil] + input.g0f() * p_for[ifil]) * t_dep  # G0
             params0[3] = (input.g2() * p_self[ifil] + input.g2f() * p_for[ifil]) * t_dep  # G2
@@ -244,20 +244,29 @@ def server(input, output, session):
             params0[7:] = 0.  # some hardware-related params (and non-resonant, if applicable
 
             # auxilary params
+            # statistics-related part of the strength
             strength = qpart(tmpr[ifil], t_ref, part_data[:, 0], part_data[:, 1]) \
                        * math.exp(-c2 * input.elow() / tmpr[ifil]) \
                        * (1 - math.exp(-c2 * input.f0() / (tmpr[ifil] * mhz_in_cm))) \
                        / math.exp(-c2 * input.elow() / t_ref) \
                        / (1 - math.exp(-c2 * input.f0() / (t_ref * mhz_in_cm)))
-            strength *= input.I0() * p_self[ifil] * k_st * 1.e-25 / tmpr[ifil]  # absolute line integral intensity
+            # molecule and thermodynamics-related factors
+            strength *= input.I0() * p_self[ifil] * k_st * 1.e-25 / tmpr[ifil]
+
             if rtype[ifil] == 0:
                 strength *= 1.e05  # 1/cm to 1/km for CAV recordings
+            if rtype[ifil] in [1, 2]:
+                strength *= clen[ifil]  # multuply to length for better perfomance on the RAD and VID recordings
+
             aux_params0[0] = strength
             aux_params0[1] = (input.f0() / clight) \
                              * math.sqrt(2 * math.log(2.) * tmpr[ifil] / (input.molm() * k_vs_aem))  # dopler width
             aux_params0[2] = dev[ifil]  # deviation
             aux_params0[3] = clen[ifil]  # cell length
             aux_params0[-1] = rtype[ifil]  # recording type
+
+            tmp_absor = mdl(cur_data[:, 0], params0, aux_params=aux_params0)
+            params0[1] = max(cur_data[:, 1])/max(tmp_absor)  # I scale
 
             # model with initial parameters
             model0 = mdl(cur_data[:, 0], params0, aux_params=aux_params0)
@@ -297,7 +306,7 @@ def server(input, output, session):
         aux_data = aux_df.to_numpy(dtype=float)
         p_self = aux_data[:, 0]  # self pressure, Torr
         p_for = aux_data[:, 1]  # foreign pressure, Torr
-        tmpr = aux_data[:, 2]  # temperature, K
+        tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
         dev = aux_data[:, 3]  # frq deviation where applicable, MHz (for RAD and VID)
         rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VIC)
@@ -344,8 +353,12 @@ def server(input, output, session):
                        / math.exp(-c2 * input.elow() / t_ref) \
                        / (1 - math.exp(-c2 * input.f0() / (t_ref * mhz_in_cm)))
             strength *= input.I0() * p_self[ifil] * k_st * 1.e-25 / tmpr[ifil]  # absolute line integral intensity
+
             if rtype[ifil] == 0:
                 strength *= 1.e05  # 1/cm to 1/km for CAV recordings
+            if rtype[ifil] in [1, 2]:
+                strength *= clen[ifil]  # multuply to length for better perfomance on the RAD and VID recordings
+
             params_aux0[0] = strength
             params_aux0[1] = (input.f0() / clight) \
                              * math.sqrt(2 * math.log(2.) * tmpr[ifil] / (input.molm() * k_vs_aem))  # dopler width
@@ -354,6 +367,9 @@ def server(input, output, session):
             params_aux0[-1] = rtype[ifil]  # recording type
 
             params_out_aux[ifil, :] = params_aux0[:]
+
+            tmp_absor = mdl(cur_data[:, 0], params0, aux_params=params_aux0)
+            params0[1] = max(cur_data[:, 1])/max(tmp_absor)  # I scale
 
             # array shows which parameters are adjusted and which are not
             jac_flag = [int(elem in input.jac_check()) for elem in single_params_dict]
