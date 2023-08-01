@@ -585,6 +585,28 @@ def server(input, output, session):
             ax[ind_c].set_xlabel('P_foreign/P_self')
             ax[ind_c].set_ylabel('Continuum parameter')
 
+        if (not input.s_normself()) and input.s_foreign():
+
+            gam0_coefs, gam0_cov = np.polyfit(p_foreign, g0[:], deg=1, rcond=None, full=False,
+                                              w=1. / g0e[:] ** 2, cov=True)
+            gam0_self = [gam0_coefs[1], np.sqrt(gam0_cov[1, 1])]
+            gam0_for = [gam0_coefs[0], np.sqrt(gam0_cov[0, 0])]
+
+            gam2_coefs, gam2_cov = np.polyfit(p_foreign, g2[:] / p_self[:], 1, rcond=None, full=False, w=1. / g2e[:] ** 2,
+                                              cov=True)
+            gam2_self = [gam2_coefs[1], np.sqrt(gam2_cov[1, 1])]
+            gam2_for = [gam2_coefs[0], np.sqrt(gam2_cov[0, 0])]
+
+            del0_coefs, del0_cov = np.polyfit(p_foreign, f0[:] / p_self[:], deg=1, rcond=None, full=False,
+                                              w=1. / f0e[:] ** 2, cov=True)
+            del0_self = [del0_coefs[1], np.sqrt(gam0_cov[1, 1])]
+            del0_for = [del0_coefs[0], np.sqrt(gam0_cov[0, 0])]
+
+            ind_g0 = 0
+            ind_g2 = 1
+            ind_f0 = 2
+            ind_i0 = 3
+
         return fig
 
     # @render_widget

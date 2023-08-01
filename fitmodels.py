@@ -30,8 +30,12 @@ def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarr
     if aux_params[-1] in [1, 2]:
         absor = dif_htp(frq, params[0], aux_params[1], params[2], params[3], 0.,
                         params[4], params[6], aux_params[0], aux_params[2], params[1], params[7], aux_params[-1])
-    absor = absor + params[8] + params[9] * (frq - params[0]) + params[10] * frq ** 2 \
+    absor = absor + params[8] + params[9] * (frq - params[0]) \
             + params[11] * (frq - params[0]) ** 3
+    if aux_params[-1] == 0:
+        absor += params[10] * frq ** 2
+    if aux_params[-1] in [1, 2]:
+        absor += params[10] * (frq - params[0])**2
     return absor
 
 
@@ -70,7 +74,10 @@ def mdljac(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params
     if jac_flag[9] == 1.:
         jac[9] = frq - params[0]
     if jac_flag[10] == 1.:
-        jac[10] = frq ** 2
+        if aux_params[-1] == 0:
+            jac[10] = frq ** 2
+        if aux_params[-1] in [1, 2]:
+            jac[10] = (frq - params[0]) ** 2
     if jac_flag[11] == 1.:
         jac[11] = (frq - params[0]) ** 3
     return jac.T
