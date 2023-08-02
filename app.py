@@ -589,23 +589,50 @@ def server(input, output, session):
 
             gam0_coefs, gam0_cov = np.polyfit(p_foreign, g0[:], deg=1, rcond=None, full=False,
                                               w=1. / g0e[:] ** 2, cov=True)
-            gam0_self = [gam0_coefs[1], np.sqrt(gam0_cov[1, 1])]
-            gam0_for = [gam0_coefs[0], np.sqrt(gam0_cov[0, 0])]
+            gam0_i = [gam0_coefs[1], np.sqrt(gam0_cov[1, 1])]
+            gam0_b = [gam0_coefs[0], np.sqrt(gam0_cov[0, 0])]
 
-            gam2_coefs, gam2_cov = np.polyfit(p_foreign, g2[:] / p_self[:], 1, rcond=None, full=False, w=1. / g2e[:] ** 2,
+            gam2_coefs, gam2_cov = np.polyfit(p_foreign, g2[:], 1, rcond=None, full=False, w=1. / g2e[:] ** 2,
                                               cov=True)
-            gam2_self = [gam2_coefs[1], np.sqrt(gam2_cov[1, 1])]
-            gam2_for = [gam2_coefs[0], np.sqrt(gam2_cov[0, 0])]
+            gam2_i = [gam2_coefs[1], np.sqrt(gam2_cov[1, 1])]
+            gam2_b = [gam2_coefs[0], np.sqrt(gam2_cov[0, 0])]
 
-            del0_coefs, del0_cov = np.polyfit(p_foreign, f0[:] / p_self[:], deg=1, rcond=None, full=False,
+            del0_coefs, del0_cov = np.polyfit(p_foreign, f0[:], deg=1, rcond=None, full=False,
                                               w=1. / f0e[:] ** 2, cov=True)
-            del0_self = [del0_coefs[1], np.sqrt(gam0_cov[1, 1])]
-            del0_for = [del0_coefs[0], np.sqrt(gam0_cov[0, 0])]
+            del0_i = [del0_coefs[1], np.sqrt(gam0_cov[1, 1])]
+            del0_b = [del0_coefs[0], np.sqrt(gam0_cov[0, 0])]
 
             ind_g0 = 0
             ind_g2 = 1
             ind_f0 = 2
             ind_i0 = 3
+
+            ax[ind_f0].errorbar(p_foreign, f0[:] - del0_i[0],
+                                xerr=None, yerr=f0e[:],
+                                fmt=points_style)
+            ax[ind_g0].plot(p_foreign, p_foreign * del0_b[0], line_style)
+            ax[ind_f0].set_xlabel('P_foreign')
+            ax[ind_f0].set_ylabel('Center freq. shift, MHz')
+            ax[ind_f0].text(0.5, 0.8, 'Foreign shift: %.3f(%0.f) Mhz/Torr' % (del0_b[0], del0_b[1]*1.E3),
+                            ha='center', va='center', transform=ax[ind_g0].transAxes)
+
+            ax[ind_g0].errorbar(p_foreign, g0[:],
+                                xerr=None, yerr=g0e[:],
+                                fmt=points_style)
+            ax[ind_g0].plot(p_foreign, gam0_i[0] + p_foreign * gam0_b[0], line_style)
+            ax[ind_g0].set_xlabel('P_foreign')
+            ax[ind_g0].set_ylabel('Gamma_0, MHz/Torr')
+            ax[ind_g0].text(0.5, 0.8, 'Foreign g0: %.3f(%0.f) MHz/Torr' % (gam0_b[0], gam0_b[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_g0].transAxes)
+
+            ax[ind_g2].errorbar(p_foreign, g2[:],
+                                xerr=None, yerr=g2e[:],
+                                fmt=points_style)
+            ax[ind_g2].plot(p_foreign, gam2_i[0] + p_foreign * gam2_b[0], line_style)
+            ax[ind_g2].set_xlabel('P_foreign')
+            ax[ind_g2].set_ylabel('Gamma_2, MHz/Torr')
+            ax[ind_g2].text(0.5, 0.8, 'Foreign g2: %.3f(%0.f) MHz/Torr' % (gam2_b[0], gam2_b[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_g2].transAxes)
 
         return fig
 
