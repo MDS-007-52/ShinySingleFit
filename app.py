@@ -116,6 +116,7 @@ def server(input, output, session):
     params_fit: reactive.Value[list] = reactive.Value([])  # params from fit
     uncert_fit: reactive.Value[list] = reactive.Value([])  # uncertainties
     params_fit_aux: reactive.Value[list] = reactive.Value([])  # aux params (see model function)
+    nrecs = reactive.Value(0)
 
     @output
     @render.text
@@ -137,6 +138,7 @@ def server(input, output, session):
             cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())
             tmp_recs.append(cur_data)
         recording.set(tmp_recs)
+        nrecs.set(len(f))
         if f_aux.get() and f_part.get():
             f_preview.set(True)
 
@@ -271,9 +273,16 @@ def server(input, output, session):
             # model with initial parameters
             model0 = mdl(cur_data[:, 0], params0, aux_params=aux_params0)
 
-            ax[ifil].plot(cur_data[:, 0] * 0.001, cur_data[:, 1], 'ro')
-            ax[ifil].plot(cur_data[:, 0] * 0.001, model0, 'b-')
-            ax[ifil].text(0.8, 0.8, str(p_self[ifil]), ha='center', va='center', transform=ax[ifil].transAxes)
+            if nrecs.get() == 1:
+                ax.plot(cur_data[:, 0] * 0.001, cur_data[:, 1], 'ro')
+                ax.plot(cur_data[:, 0] * 0.001, model0, 'b-')
+                ax.text(0.8, 0.8,'P_self = '+str(p_self[ifil]), ha='left', va='center', transform=ax.transAxes)
+                ax.text(0.8, 0.7, 'P_foreign = '+str(p_for[ifil]), ha='left', va='center', transform=ax.transAxes)
+            else:
+                ax[ifil].plot(cur_data[:, 0] * 0.001, cur_data[:, 1], 'ro')
+                ax[ifil].plot(cur_data[:, 0] * 0.001, model0, 'b-')
+                ax[ifil].text(0.8, 0.8, 'P_self = '+str(p_self[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
+                ax[ifil].text(0.8, 0.7, 'P_foreign = '+str(p_for[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
             # ax = plt.subplot(ifil, cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]))
         # print(fnames)
         # spectra_info()
@@ -462,19 +471,29 @@ def server(input, output, session):
                 if params_fit_aux.get()[ifil, -1] == 0:
                     q_factor *= 1.e5
 
-                ax[ifil].text(0.2, 0.8, 'Q = ' + str(round(q_factor)),
-                              ha='center', va='center', transform=ax[ifil].transAxes)
+                if nrecs.get() == 1:
+                    ax.text(0.2, 0.8, 'Q = ' + str(round(q_factor)),
+                            ha='center', va='center', transform=ax.transAxes)
+                    ax.hlines(0.,
+                              min((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
+                              max((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
+                              linestyles='dashed', colors='grey')
+                    ax.plot((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale,
+                            residuals.get()[ifil][:, 1], 'b-')
+                else:
+                    ax[ifil].text(0.2, 0.8, 'Q = ' + str(round(q_factor)),
+                                  ha='center', va='center', transform=ax[ifil].transAxes)
 
-                ax[ifil].hlines(0.,
-                                min((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
-                                max((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
-                                linestyles='dashed', colors='grey')
+                    ax[ifil].hlines(0.,
+                                    min((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
+                                    max((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
+                                    linestyles='dashed', colors='grey')
 
-                ax[ifil].plot((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale,
-                              residuals.get()[ifil][:, 1],
-                              'b-')
+                    ax[ifil].plot((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale,
+                                  residuals.get()[ifil][:, 1],
+                                  'b-')
 
-                ax[ifil].set_xlabel(tmp_xlabel)
+                    ax[ifil].set_xlabel(tmp_xlabel)
             return fig
         else:
             fig, ax = plt.subplots()
