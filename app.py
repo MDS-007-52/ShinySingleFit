@@ -629,11 +629,11 @@ def server(input, output, session):
             ax[ind_f0].errorbar(p_foreign, f0[:] - del0_i[0],
                                 xerr=None, yerr=f0e[:],
                                 fmt=points_style)
-            ax[ind_g0].plot(p_foreign, p_foreign * del0_b[0], line_style)
+            ax[ind_f0].plot(p_foreign, p_foreign * del0_b[0], line_style)
             ax[ind_f0].set_xlabel('P_foreign')
             ax[ind_f0].set_ylabel('Center freq. shift, MHz')
             ax[ind_f0].text(0.5, 0.8, 'Foreign shift: %.3f(%0.f) Mhz/Torr' % (del0_b[0], del0_b[1]*1.E3),
-                            ha='center', va='center', transform=ax[ind_g0].transAxes)
+                            ha='center', va='center', transform=ax[ind_f0].transAxes)
 
             ax[ind_g0].errorbar(p_foreign, g0[:],
                                 xerr=None, yerr=g0e[:],
