@@ -276,13 +276,13 @@ def server(input, output, session):
             if nrecs.get() == 1:
                 ax.plot(cur_data[:, 0] * 0.001, cur_data[:, 1], 'ro')
                 ax.plot(cur_data[:, 0] * 0.001, model0, 'b-')
-                ax.text(0.8, 0.8,'P_self = '+str(p_self[ifil]), ha='left', va='center', transform=ax.transAxes)
-                ax.text(0.8, 0.7, 'P_foreign = '+str(p_for[ifil]), ha='left', va='center', transform=ax.transAxes)
+                ax.text(0.2, 0.8,'P_self = '+str(p_self[ifil]), ha='left', va='center', transform=ax.transAxes)
+                ax.text(0.2, 0.7, 'P_foreign = '+str(p_for[ifil]), ha='left', va='center', transform=ax.transAxes)
             else:
                 ax[ifil].plot(cur_data[:, 0] * 0.001, cur_data[:, 1], 'ro')
                 ax[ifil].plot(cur_data[:, 0] * 0.001, model0, 'b-')
-                ax[ifil].text(0.8, 0.8, 'P_self = '+str(p_self[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
-                ax[ifil].text(0.8, 0.7, 'P_foreign = '+str(p_for[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
+                ax[ifil].text(0.2, 0.8, 'P_self = '+str(p_self[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
+                ax[ifil].text(0.2, 0.7, 'P_foreign = '+str(p_for[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
             # ax = plt.subplot(ifil, cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]))
         # print(fnames)
         # spectra_info()
