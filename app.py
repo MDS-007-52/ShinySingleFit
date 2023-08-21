@@ -25,14 +25,14 @@ app_ui = ui.page_fluid(
     #         "if (window.MathJax) MathJax.Hub.Queue(['Typeset', MathJax.Hub]);"
     #     ),
     # ),
-    ui.panel_title("This is my shiny Line-by-line fit!"),
+    ui.panel_title("Line-by-line fit demo version"),
     # this sidebar layout for marking which parameters to adjust and initial parameters values
     ui.layout_sidebar(
         ui.panel_sidebar(ui.h4("Mark adjustable"),
                          ui.input_checkbox_group("jac_check", "",
                                                  single_params_dict, selected=list(single_params_dict.keys())),
-                         ui.input_action_button("b_check", "Check"),
-                         ui.output_text_verbatim("jac_flag_out", placeholder=True)
+                         #ui.input_action_button("b_check", "Check"),
+                         #ui.output_text_verbatim("jac_flag_out", placeholder=True)
                          ),
         ui.panel_main(ui.h4("Parameters and coefficients for initial values"),
                       ui.row(
@@ -71,8 +71,17 @@ app_ui = ui.page_fluid(
     # this layout is for uploading "markup" for recordings, i.e. pressures, temperature, recording type etc
 
     ui.layout_sidebar(
-        ui.panel_sidebar(ui.input_file("aux_data", "Load recordings info", accept=["*.*"], multiple=False),
-                         ui.input_file("partition", "Load partition function", accept=["*.*"], multiple=False)),
+        ui.panel_sidebar(ui.row(
+                                ui.column(6, ui.input_file("aux_data", "Load recordings info",
+                                          accept=["*.*"], multiple=False)),
+                                ui.column(6, ui.input_switch('s_header', "Column names in the 1st line"))
+                                ),
+                         ui.row(
+                                ui.column(6, ui.input_file("partition", "Load partition function",
+                                                           accept=["*.*"], multiple=False)),
+                                ui.column(6, ui.input_switch('s_nopart', "Use no partition function"))
+                                )
+                         ),
         ui.panel_main(ui.output_ui("aux_data_show"))
 
     ),
@@ -117,6 +126,7 @@ def server(input, output, session):
     uncert_fit: reactive.Value[list] = reactive.Value([])  # uncertainties
     params_fit_aux: reactive.Value[list] = reactive.Value([])  # aux params (see model function)
     nrecs = reactive.Value(0)
+    aux_df: pd.DataFrame = reactive.Value()
 
     @output
     @render.text
@@ -155,15 +165,10 @@ def server(input, output, session):
     def _():
         if not (input.partition() is None):
             f_part.set(True)
+        if input.s_nopart():
+            f_part.set(True)
         if f_aux.get() and f_part.get() and not (input.input_files() is None):
             f_preview.set(True)
-
-    # @output
-    # @render.text
-    # def jac_flag_out():
-    #     # return str(f_preview.get()) + str(f_aux.get()) + str(f_part.get())
-    #     if f_fit.get():
-    #         return str(params_fit.get()[:, 0])
 
     @output
     @render.ui
@@ -177,7 +182,15 @@ def server(input, output, session):
                    "2 - video with freq. manipulation (deviation should be non-zero), 3 - video with amplitude" \
                    "modulation (deviation = 0)."
         aux_file: list[FileInfo] = input.aux_data()
-        aux_out = pd.read_csv(aux_file[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
+        if input.s_header():
+            aux_header = 0
+            aux_names = None
+        else:
+            aux_header = None
+            aux_names = ['#file', 'Pself', 'Pforeign', 'T', 'dev', 'typ', 'L' ]
+        aux_out = pd.read_csv(aux_file[0]["datapath"], header=aux_header, names = aux_names,
+                              delim_whitespace=True, index_col=0)
+        aux_df.set(aux_out)
         return ui.HTML(aux_out.to_html(classes="table table-striped"))
 
     @output
@@ -202,7 +215,7 @@ def server(input, output, session):
             fig, ax = plt.subplots()
             ax = plt.text(0.4, 0.4, "Please upload data on the recordings pressures, temperatures, etc")
             return fig
-        if input.partition() is None:
+        if (input.partition() is None) and not input.s_nopart():
             fig, ax = plt.subplots()
             ax = plt.text(0.4, 0.4, "Please upload your partition data")
             return fig
@@ -211,8 +224,8 @@ def server(input, output, session):
         fig, ax = plt.subplots(1, len(f), sharey=True)
         # print('length of files dataset is ', len(f), ' files')
         # f has fields: name, size, type, datapath
-        aux_df = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
-        aux_data = aux_df.to_numpy(dtype=float)
+        #aux_df = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
+        aux_data = aux_df.get().to_numpy(dtype=float)
         p_self = aux_data[:, 0]  # self pressure, Torr
         p_for = aux_data[:, 1]  # foreign pressure, Torr
         tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
@@ -221,9 +234,13 @@ def server(input, output, session):
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VIC)
 
         # read data for partition sum calculations for line strength
-        part_data = np.loadtxt(input.partition()[0]["datapath"],
-                               dtype='float', comments='#', delimiter=None,
-                               unpack=False)  # partition data for intensity
+        if not(input.s_nopart()):
+            part_data = np.loadtxt(input.partition()[0]["datapath"],
+                                   dtype='float', comments='#', delimiter=None,
+                                   unpack=False)  # partition data for intensity
+        #else:
+        #    part_data = np.empty((2, 2))
+        #    part_data = [[1., 1000.], [1., 1.]]
 
         for ifil in range(len(f)):
             cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())
@@ -247,7 +264,10 @@ def server(input, output, session):
 
             # auxilary params
             # statistics-related part of the strength
-            strength = qpart(tmpr[ifil], t_ref, part_data[:, 0], part_data[:, 1]) \
+            partition_factor = 1.
+            if not(input.s_nopart):
+                partition_factor = qpart(tmpr[ifil], t_ref, part_data[:, 0], part_data[:, 1])
+            strength = partition_factor \
                        * math.exp(-c2 * input.elow() / tmpr[ifil]) \
                        * (1 - math.exp(-c2 * input.f0() / (tmpr[ifil] * mhz_in_cm))) \
                        / math.exp(-c2 * input.elow() / t_ref) \
@@ -311,8 +331,8 @@ def server(input, output, session):
         f: list[FileInfo] = input.input_files()
         # f has fields: name, size, type, datapath
         # load aux info and form aux params arrays (pressure, temperature etc)
-        aux_df = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
-        aux_data = aux_df.to_numpy(dtype=float)
+        #aux_df = pd.read_csv(input.aux_data()[0]["datapath"], header=0, delim_whitespace=True, index_col=0)
+        aux_data = aux_df.get().to_numpy(dtype=float)
         p_self = aux_data[:, 0]  # self pressure, Torr
         p_for = aux_data[:, 1]  # foreign pressure, Torr
         tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
@@ -330,9 +350,10 @@ def server(input, output, session):
         resid_out = []
 
         # read data for partition sum calculations for line strength
-        part_data = np.loadtxt(input.partition()[0]["datapath"],
-                               dtype='float', comments='#', delimiter=None,
-                               unpack=False)  # partition data for intensity
+        if not(input.s_nopart()):
+            part_data = np.loadtxt(input.partition()[0]["datapath"],
+                                   dtype='float', comments='#', delimiter=None,
+                                   unpack=False)  # partition data for intensity
         p = ui.Progress(min=0, max=len(f))
         for ifil in range(len(f)):
             p.set(ifil, message='Fit in progress')
@@ -356,7 +377,10 @@ def server(input, output, session):
             params0[7:] = 0.  # some hardware-related params (and non-resonant, if applicable
 
             # auxilary params
-            strength = qpart(tmpr[ifil], t_ref, part_data[:, 0], part_data[:, 1]) \
+            partition_factor = 1.
+            if not input.s_nopart:
+                partition_factor = qpart(tmpr[ifil], t_ref, part_data[:, 0], part_data[:, 1])
+            strength = partition_factor \
                        * math.exp(-c2 * input.elow() / tmpr[ifil]) \
                        * (1 - math.exp(-c2 * input.f0() / (tmpr[ifil] * mhz_in_cm))) \
                        / math.exp(-c2 * input.elow() / t_ref) \
@@ -688,7 +712,7 @@ def server(input, output, session):
             ax[ind_f0].text(0.5, 0.8, 'Self shift: %.3f(%0.f) Mhz/Torr' % (del0_b[0], del0_b[1]*1.E3),
                             ha='center', va='center', transform=ax[ind_f0].transAxes)
 
-            ax[ind_g0].errorbar(p_foreign, g0[:],
+            ax[ind_g0].errorbar(p_self, g0[:],
                                 xerr=None, yerr=g0e[:],
                                 fmt=points_style)
             ax[ind_g0].plot(p_self, gam0_i[0] + p_self * gam0_b[0], line_style)
@@ -700,7 +724,7 @@ def server(input, output, session):
             ax[ind_g2].errorbar(p_self, g2[:],
                                 xerr=None, yerr=g2e[:],
                                 fmt=points_style)
-            ax[ind_g2].plot(p_foreign, gam2_i[0] + p_self * gam2_b[0], line_style)
+            ax[ind_g2].plot(p_self, gam2_i[0] + p_self * gam2_b[0], line_style)
             ax[ind_g2].set_xlabel('P_self')
             ax[ind_g2].set_ylabel('Gamma_2, MHz/Torr')
             ax[ind_g2].text(0.5, 0.8, 'Self g2: %.3f(%0.f) MHz/Torr' % (gam2_b[0], gam2_b[1] * 1.E3),
@@ -709,6 +733,7 @@ def server(input, output, session):
             ax[ind_i0].errorbar(p_self[:] / (kB * tmpr[:]), i0, xerr=None, yerr=i0e, fmt=points_style)
             ax[ind_i0].set_xlabel('Absorber concentration, 1/m^3')
             ax[ind_i0].set_ylabel('Intensity correction, unitless')
+
 
         return fig
 
