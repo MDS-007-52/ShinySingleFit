@@ -5,6 +5,8 @@ from shiny import *  # App, Inputs, Outputs, Session, render, ui
 # import ipysheet
 import numpy as np
 from pathlib import Path
+import zipfile
+import io
 import math
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -103,9 +105,13 @@ app_ui = ui.page_fluid(
     ui.output_ui("fit_result_table"),
     ui.row(ui.column(3, ui.input_switch('s_foreign', "Foreign pressure")),
            ui.column(3, ui.input_switch('s_normself', "Norm. to self P")),
-           ui.column(4, ui.input_numeric('f0_shift', "Unshifted center", value=115271.202)),
+           ui.column(4, ui.input_numeric('f0_shift', "Unshifted center", value=115271.202))
+           ),
+    ui.row(
            ui.column(3, ui.input_action_button("b_coefs", "Plot vs pressure")),
-           ui.column(3, ui.download_button("download_params", "Download results"))
+           ui.column(3, ui.download_button("download_params", "Download results")),
+           ui.column(3, ui.download_button("download_resid", "Download residuals")),
+           ui.column(3, ui.input_text("resid_prefix", "Residual file prefix", value="r_"))
            ),
 
     ui.output_plot("preview_params", height="1200px")
@@ -118,6 +124,7 @@ def server(input, output, session):
 
     residuals: reactive.Value[list] = reactive.Value([])
     recording: reactive.Value[list] = reactive.Value([])
+    names: reactive.Value[list] = reactive.Value([])
     f_aux = reactive.Value(False)  # flag that aux info loaded
     f_part = reactive.Value(False)  # flag that partition function is loaded
     f_preview = reactive.Value(False)  # flag that spectra are loaded and preview is available
@@ -143,12 +150,16 @@ def server(input, output, session):
     @reactive.event(input.input_files)
     def _():
         tmp_recs = []
+        tmp_names = []
         f: list[FileInfo] = input.input_files()
+        # f has fields: name, size, type, datapath
         for ifil in range(len(f)):
+            tmp_names.append(f[ifil]["name"])
             cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())
             tmp_recs.append(cur_data)
         recording.set(tmp_recs)
         nrecs.set(len(f))
+        names.set(tmp_names)
         if f_aux.get() and f_part.get():
             f_preview.set(True)
 
@@ -187,8 +198,8 @@ def server(input, output, session):
             aux_names = None
         else:
             aux_header = None
-            aux_names = ['#file', 'Pself', 'Pforeign', 'T', 'dev', 'typ', 'L' ]
-        aux_out = pd.read_csv(aux_file[0]["datapath"], header=aux_header, names = aux_names,
+            aux_names = ['#file', 'Pself', 'Pforeign', 'T', 'dev', 'typ', 'L']
+        aux_out = pd.read_csv(aux_file[0]["datapath"], header=aux_header, names=aux_names,
                               delim_whitespace=True, index_col=0)
         aux_df.set(aux_out)
         return ui.HTML(aux_out.to_html(classes="table table-striped"))
@@ -219,6 +230,9 @@ def server(input, output, session):
             fig, ax = plt.subplots()
             ax = plt.text(0.4, 0.4, "Please upload your partition data")
             return fig
+        # rearrange information from aux data file in accordance with the
+        # order of the names of the loaded spectra
+        aux_df.set(aux_df.get().reindex(names.get()))
         # read the list of the loaded filenames etc
         f: list[FileInfo] = input.input_files()
         fig, ax = plt.subplots(1, len(f), sharey=True)
@@ -265,7 +279,7 @@ def server(input, output, session):
             # auxilary params
             # statistics-related part of the strength
             partition_factor = 1.
-            if not(input.s_nopart):
+            if not input.s_nopart:
                 partition_factor = qpart(tmpr[ifil], t_ref, part_data[:, 0], part_data[:, 1])
             strength = partition_factor \
                        * math.exp(-c2 * input.elow() / tmpr[ifil]) \
@@ -327,6 +341,7 @@ def server(input, output, session):
     @reactive.event(input.b_fit)  # within this func we get the parameters fitted to each loaded profile
     def _():
         f_fit.set(False)
+        aux_df.set(aux_df.get().reindex(names.get()))
         # load the list of files with spectra
         f: list[FileInfo] = input.input_files()
         # f has fields: name, size, type, datapath
@@ -475,6 +490,24 @@ def server(input, output, session):
         # for i in range(5):
         #     tmp_data = [25., 125., 296.5, 3250., 318., 0., 7.975e-6]
         #     yield '    '.join(['%.5g' % elem for elem in tmp_data] + ['\n'] )
+
+    @session.download(filename='residuals.zip')
+    def download_resid():
+        if f_fit.get():
+            with io.BytesIO() as buf:
+                # this creates in-memory buffer where zip archive is stored
+                # without storing file on the disk
+                testzip = zipfile.ZipFile(buf, 'w')  # create a ZipFile object, instead of filename use buffer object name
+                tmp_names = names.get()
+                tmp_resid = residuals.get()
+                for i in range(len(tmp_names)):
+                    current_resid_name = input.resid_prefix()+tmp_names[i]
+                    current_df = pd.DataFrame(tmp_resid[i])
+                    # create a file within zip archive
+                    testzip.writestr(current_resid_name, current_df.to_string(header=False, index=False))
+                testzip.close()
+                yield buf.getvalue()  # return the buffer content as file to download
+
 
     @output
     @render.plot(alt='Fit residuals')
