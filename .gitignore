@@ -3,4 +3,7 @@ venv/
 _aux/
 Thumbs.db
 __pycache__/
+_fit_data/
 params_out.txt
+*.f90
+*.iml
