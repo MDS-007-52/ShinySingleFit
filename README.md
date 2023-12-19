@@ -1,9 +1,9 @@
 ---
 title: Shiny Single Fit
-emoji: U+1f40b
+licence: MIT
 colorFrom: green
-colorTo: white
-sdk: Docker
+colorTo: gray
+sdk: docker
 app_file: app.py
 pinned: false
 ---
