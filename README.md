@@ -30,7 +30,7 @@ face quite common routine, the analysis of the recording batches of some spectra
 several lines). These batches usually correspond to the evolution of the spectral shape under
 conditions of step by step changing pressure of the absorbing of foreign gas. This software 
 is an attempt to generalize these routines and work out some time-saving approach to the 
-analysis of the recorded spectra.
+analysis of the recorded spectra for the most common situations.
 
 # Interface and working with the application
 
@@ -52,3 +52,36 @@ These values are used to calculate guess values for the parameters of the model 
 (like integral intensity, HWHM, mixing parameter, etc) which fitting procedure starts with, 
 the guess values are calculated in accordance with the absorbing and foreign gases pressure
 and temperature.
+
+## Data upload
+
+Second block is for uploading your spectra and some additional data we need for the analysis.
+
+"Load recordings info" section: here you should load a single file with the list of filenames
+and experimental conditions the spectra were recorded under. It should contain 7 columns:
+
+1. filename
+2. pressure of the absorbing gas (Torr)
+3. foreign gas pressure (Torr)
+4. temperature (in C or K, recalculated to K inside the service automatically)
+5. frequency deviation (see the details below)
+6. recording type (see the detail below)
+7. cell length
+
+Column 6 currently supports the following values:
+
+- 0 for the direct observation of the line profile (like in cavity spectrometer)
+- 1 for the FM mode recordings from the RAD spectrometer
+- 2 for the FM mode recordings from the video spectrometer
+
+FM mode is approach when the frequency of the radiation source oscillates between two close
+values, which leads to the corresponding oscillations of the spectrometer signal. 
+The amplitude of these oscillations is proportional to the absoption differenve between two
+mentoned frequency values. The difference between former two options is due to the 
+fact that RAD spectrometer (radioacousic detector) produces signal proportional to the
+power absorbed by the molecules, while video spectrometer produces signal proportional
+to the leftover power passed through the gas.
+
+For recording type (col 6) value of 0 the deviation (col 5) should be set to 0 (this value 
+is not used anyway). For col 6 values of 1 and 2, the col 5 value should be non-zero and set
+to the frequency deviation value used in FM mode for the corresponding recording.
