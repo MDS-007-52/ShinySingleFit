@@ -57,7 +57,19 @@ and temperature.
 
 Second block is for uploading your spectra and some additional data we need for the analysis.
 
-"Load recordings info" section: here you should load a single file with the list of filenames
+### Loading spectra
+
+Press "Browse" button under "Load your spectra" label and upload any amount of the files
+containing experimental data. Files should contain two columns: the first one is frequency 
+(currently, on 2023.12.26, only MHz units are supported), the second one is spectrometer signal
+or absorption coefficient in any arbitrary units. Columns starting from number three, 
+if existing, will be ignored. In the "Commented lines" input value you can specify 
+how the lines in your files are commented (the most common options are `#` or `//`, the former
+is set as default).
+
+### Loading recordings metadata
+ 
+Press "Browse" button under "Load recordings info" and upload a single file with the list of filenames
 and experimental conditions the spectra were recorded under. It should contain 7 columns:
 
 1. filename
@@ -76,12 +88,13 @@ Column 6 currently supports the following values:
 
 FM mode is approach when the frequency of the radiation source oscillates between two close
 values, which leads to the corresponding oscillations of the spectrometer signal. 
-The amplitude of these oscillations is proportional to the absoption differenve between two
-mentoned frequency values. The difference between former two options is due to the 
-fact that RAD spectrometer (radioacousic detector) produces signal proportional to the
+The amplitude of these oscillations is proportional to the absorption difference between two
+mentioned frequency values. The difference between former two options is due to the 
+fact that RAD spectrometer (radio-acoustic detector) produces signal proportional to the
 power absorbed by the molecules, while video spectrometer produces signal proportional
 to the leftover power passed through the gas.
 
 For recording type (col 6) value of 0 the deviation (col 5) should be set to 0 (this value 
 is not used anyway). For col 6 values of 1 and 2, the col 5 value should be non-zero and set
-to the frequency deviation value used in FM mode for the corresponding recording.
+to the frequency deviation value used in FM mode for the corresponding recording (in the same
+units that frequency is measured in the recorded spectra).
