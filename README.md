@@ -64,7 +64,7 @@ containing experimental data. Files should contain two columns: the first one is
 (currently, on 2023.12.26, only MHz units are supported), the second one is spectrometer signal
 or absorption coefficient in any arbitrary units. Columns starting from number three, 
 if existing, will be ignored. In the "Commented lines" input value you can specify 
-how the lines in your files are commented (the most common options are `#` or `//`, the former
+how the lines in your files are commented (the most common options are `#` or `//`, the latter
 is set as default).
 
 ### Loading recordings metadata
@@ -89,7 +89,7 @@ Column 6 currently supports the following values:
 FM mode is approach when the frequency of the radiation source oscillates between two close
 values, which leads to the corresponding oscillations of the spectrometer signal. 
 The amplitude of these oscillations is proportional to the absorption difference between two
-mentioned frequency values. The difference between former two options is due to the 
+mentioned frequency values. The difference between latter two options is due to the 
 fact that RAD spectrometer (radio-acoustic detector) produces signal proportional to the
 power absorbed by the molecules, while video spectrometer produces signal proportional
 to the leftover power passed through the gas.
@@ -98,3 +98,76 @@ For recording type (col 6) value of 0 the deviation (col 5) should be set to 0 (
 is not used anyway). For col 6 values of 1 and 2, the col 5 value should be non-zero and set
 to the frequency deviation value used in FM mode for the corresponding recording (in the same
 units that frequency is measured in the recorded spectra).
+
+Here is some example of metadata file lines:
+
+```text
+#file           Pself   Pforeign T     dev typ  L 
+filename_1.dat	24.768	725.992	297.17	0	0	1.
+filename_2.dat	0.095	0.523	296.58	1.5	1	10.
+filename_3.dat	0.010	0.034	298.1	0.2	2	100.
+```
+
+The first line may contain column headers (just not to confuse the columns), 
+in this case you need to switch on the control "Column names in the 1st line"
+near the file download button. Filename_1 corresponds to the directly observed line profile
+from the resonator (cavity) spectrometer, dev=0 and L=1 (as they are ignored anyway).
+Filename_2 corresponds to the FM mode recording from RAD spectrometer (or any similar type
+producing signal proportional to the absorbed radiation power). Filename_3 corresponds to
+the FM mode recording from videospectrometer producing signal proportional to the 
+passthrough power. For both latter cases frequency deviation value is specified (to calculate
+proper recorded signal profile shape from the spectral line shape), as well as cell length
+value L (to consider Bouger's law, which is essential when observing strong lines, where
+absorption multiplied to the pass length is big enough).
+
+### Loading partition function information
+
+In all cases this service is designed for, we need to calculate spectral line integrated
+intensity properly in according to the thermodynamical conditions of the experiment, 
+namely absorber partial pressure and gas temperature. For this, we should take into 
+account partition function which impacts the temperature dependence of the integrated 
+intensity of the spectral line in our recordings. Pressing the "Browse" button under
+the label "Load partition function" you can upload a partition function file of 
+two columns (temperature (K) and partition function value). Such data can be 
+downloaded from the [HITRAN database](https://hitran.org). In case where partition function
+is absent or unnecessary (e.g. temperature is close to the reference value of 296 K
+and we do not need much precision), you can just switch the control "Use no partition 
+function" to use value of 1. for processing of your data.
+
+## Preview your data
+
+When experimental data, metadata and partition function are loaded, you can preview your
+data to check it, and also see the model profiles with the guess starting values you
+used in the first block. If some necessary information is absent, the message will appear
+saying, what you should add to continue data processing.
+
+## Fitting model profile to the recordings
+
+When you are happy with your uploaded data and preview, press the button "Fit model to 
+recordings" to start fitting procedure. When it is over, the residuals will be shown below.
+
+## Results: viewing the plots and downloading the treatment data
+
+After fitting the model function to your experimental data, you have a set of 
+values of various profile parameters (HWHM, speed-dependent part of the collisional width,
+central frequency, mixing parameter, integrated intensity) corresponding to each 
+individual recording. There is an option to preview dependencies of these parameters
+versus pressure. Below the residuals, you can find switches: 
+
+- "Foreign pressure": OFF if pure absorbing gas spectrum was recorded, 
+ON for the spectrum of mixture of the absorbing and foreign gas  
+- "Norm to self P": OFF if partial pressure of the absorbing gas is the same in all
+recordings, ON if partial pressure of the absorbing gas is different in different
+recordings
+
+"Unshifted center" data input is used for better view of the central frequency versus 
+pressure. The specified value is subtracted out of the fitted central frequency values
+to make a plot.
+
+"Plot vs pressure" button shows the figures for the pressure dependencies.
+
+"Download results" downloads single text file with the fit results (both parameter value
+and fit uncertainty).
+
+"Download residuals" downloads .zip-file with the fit residuals of all uploaded experimental
+recordings packed.
