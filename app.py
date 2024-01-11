@@ -114,7 +114,11 @@ app_ui = ui.page_fluid(
            ui.column(3, ui.input_text("resid_prefix", "Residual file prefix", value="r_"))
            ),
 
-    ui.output_plot("preview_params", height="1200px")
+    ui.output_plot("preview_params", height="1200px"),
+    ui.layout_sidebar(ui.panel_sidebar(ui.h4("Mark adjustable"),
+                                       ui.input_checkbox_group("jac_check_multi", "",
+                                                               multi_params_dict, selected=list(multi_params_dict.keys()))), 
+                      ui.panel_main(ui.h4("Multifit initial values")))
 )
 
 
