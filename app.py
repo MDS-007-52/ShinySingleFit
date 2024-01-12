@@ -27,7 +27,8 @@ app_ui = ui.page_fluid(
     #         "if (window.MathJax) MathJax.Hub.Queue(['Typeset', MathJax.Hub]);"
     #     ),
     # ),
-    ui.panel_title("Line-by-line fit demo version"),
+    ui.panel_title("Spectral line shape fit demo version"),
+    ui.row(ui.h2("Line by line fit")),
     # this sidebar layout for marking which parameters to adjust and initial parameters values
     ui.layout_sidebar(
         ui.panel_sidebar(ui.h4("Mark adjustable"),
@@ -115,10 +116,36 @@ app_ui = ui.page_fluid(
            ),
 
     ui.output_plot("preview_params", height="1200px"),
+
+    ui.row(ui.h2("Multispectrum fit")),
+
     ui.layout_sidebar(ui.panel_sidebar(ui.h4("Mark adjustable"),
                                        ui.input_checkbox_group("jac_check_multi", "",
                                                                multi_params_dict, selected=list(multi_params_dict.keys()))), 
-                      ui.panel_main(ui.h4("Multifit initial values")))
+                      ui.panel_main(ui.h4("Multifit initial values"),
+                                    ui.row(ui.column(4, ui.input_numeric("mI0", "Intensity, 1e-25 cm/mol", value=33.)),
+                                           ui.column(4, ui.input_numeric("melow", "Lower level energy, 1/cm", value=0.)),
+                                           ui.column(4, ui.input_numeric("mmolm", "Molecular mass, a.m.u.", value=28.))
+                                           ),
+                                    ui.row(ui.column(4, ui.input_numeric("mf0", "Central frq", value=115271.202))),
+                                    ui.row(ui.column(3, ui.input_numeric("mg0s", "Gamma0 self", value=3.375)),
+                                           ui.column(3, ui.input_numeric("mng0s", "n Gamma0 self", value=0.78)),
+                                           ui.column(3, ui.input_numeric("mg2s", "Gamma2 self", value=0.33)),
+                                           ui.column(3, ui.input_numeric("mng2s", "n Gamma2 self", value=0.78))),
+                                    ui.row(ui.column(3, ui.input_numeric("mg0f", "Gamma0 foreign", value=3.33)),
+                                           ui.column(3, ui.input_numeric("mng0f", "n Gamma0 foreign", value=0.78)),
+                                           ui.column(3, ui.input_numeric("mg2f", "Gamma2 foreign", value=0.33)),
+                                           ui.column(3, ui.input_numeric("mng2f", "n Gamma2 foreign", value=0.78))),
+                                    ui.row(ui.column(3, ui.input_numeric("md0s", "Delta0 self", value=-0.004)),
+                                           ui.column(3, ui.input_numeric("mnd0s", "n Delta0 self", value=0.78)),
+                                           ui.column(3, ui.input_numeric("md2s", "Delta2 self", value=0.00)),
+                                           ui.column(3, ui.input_numeric("mnd2s", "n Delta2 self", value=0.78))),
+                                    ui.row(ui.column(3, ui.input_numeric("md0f", "Delta0 foreign", value=-0.004)),
+                                           ui.column(3, ui.input_numeric("mnd0f", "n Delta0 foreign", value=0.78)),
+                                           ui.column(3, ui.input_numeric("md2f", "Delta2 foreign", value=0.00)),
+                                           ui.column(3, ui.input_numeric("mnd2f", "n Delta2 foreign", value=0.78))),
+                                    )
+                      )
 )
 
 
