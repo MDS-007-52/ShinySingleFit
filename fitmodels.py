@@ -81,3 +81,11 @@ def mdljac(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params
     if jac_flag[11] == 1.:
         jac[11] = (frq - params[0]) ** 3
     return jac.T
+
+
+def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
+    pass
+
+
+def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
+    pass

@@ -95,7 +95,7 @@ app_ui = ui.page_fluid(
         ui.column(4, ui.input_text("text_comment", "Commented lines", value="//")),
         ui.column(4, ui.input_action_button("b_preview", "Preview"))
     ),
-    ui.output_plot("preview_data"),
+    ui.output_plot("preview_spectrum"),
     ui.output_text("preview_status"),
 
     # an interface for fitting the model to the spectra and visualisation of the result
@@ -127,7 +127,8 @@ app_ui = ui.page_fluid(
                                            ui.column(4, ui.input_numeric("melow", "Lower level energy, 1/cm", value=0.)),
                                            ui.column(4, ui.input_numeric("mmolm", "Molecular mass, a.m.u.", value=28.))
                                            ),
-                                    ui.row(ui.column(4, ui.input_numeric("mf0", "Central frq", value=115271.202))),
+                                    ui.row(ui.column(4, ui.input_numeric("mf0", "Central frq", value=115271.202)),
+                                           ui.column(4, ui.input_numeric("mfrab", "Rabi frq", value=0.1))),
                                     ui.row(ui.column(3, ui.input_numeric("mg0s", "Gamma0 self", value=3.375)),
                                            ui.column(3, ui.input_numeric("mng0s", "n Gamma0 self", value=0.78)),
                                            ui.column(3, ui.input_numeric("mg2s", "Gamma2 self", value=0.33)),
@@ -144,8 +145,28 @@ app_ui = ui.page_fluid(
                                            ui.column(3, ui.input_numeric("mnd0f", "n Delta0 foreign", value=0.78)),
                                            ui.column(3, ui.input_numeric("md2f", "Delta2 foreign", value=0.00)),
                                            ui.column(3, ui.input_numeric("mnd2f", "n Delta2 foreign", value=0.78))),
+                                    ui.row(ui.column(3, ui.input_numeric("my0s", "Mixing self", value=0.000006)),
+                                           ui.column(3, ui.input_numeric("mny0s", "n mixing self", value=0.78)),
+                                           ui.column(3, ui.input_numeric("my0f", "Mixing foreign", value=0.000006)),
+                                           ui.column(3, ui.input_numeric("mny0f", "n mixing foreign", value=0.78))),
+                                    ui.row(ui.column(3, ui.input_numeric("mnus", "Vel.chn. rate self", value=0.15)),
+                                           ui.column(3, ui.input_numeric("mnnus", "n nu_vc self", value=0.78)),
+                                           ui.column(3, ui.input_numeric("mnuf", "Vel.chn. rate foreign", value=0.15)),
+                                           ui.column(3, ui.input_numeric("mnnuf", "n nu_vc foreign", value=0.78))),
+                                    ui.row(ui.column(3, ui.input_numeric("mcons", "Continuum self", value=5.e-18)),
+                                           ui.column(3, ui.input_numeric("mncons", "n C self", value=0.0)),
+                                           ui.column(3, ui.input_numeric("mconf", "Continuum foreign", value=5.e-18)),
+                                           ui.column(3, ui.input_numeric("mnconf", "n C foreign", value=0.0))),
+                                    ui.row(ui.column(6, ui.input_numeric("mpow", "power factor", value=0.)),
+                                           ui.column(6, ui.input_numeric("mscale", "scale factor", value=1.0)),),
+                                    ui.row(ui.column(3, ui.input_numeric("mbl0", "Baseline 0", value=0.0)),
+                                           ui.column(3, ui.input_numeric("mbl1", "Baseline 1", value=0.0)),
+                                           ui.column(3, ui.input_numeric("mbl2", "Baseline 2", value=0.0)),
+                                           ui.column(3, ui.input_numeric("mbl3", "Baseline 3", value=0.0))),
                                     )
-                      )
+                      ),
+    ui.input_action_button("b_preview_multifit", "Preview multifit"),
+    ui.output_plot("preview_spectrum_multifit")
 )
 
 
@@ -160,9 +181,13 @@ def server(input, output, session):
     f_part = reactive.Value(False)  # flag that partition function is loaded
     f_preview = reactive.Value(False)  # flag that spectra are loaded and preview is available
     f_fit = reactive.Value(False)  # flag that fit is finished
+    f_fit_multi = reactive.Value(False)  # flag that multifit is finished
     params_fit: reactive.Value[list] = reactive.Value([])  # params from fit
     uncert_fit: reactive.Value[list] = reactive.Value([])  # uncertainties
     params_fit_aux: reactive.Value[list] = reactive.Value([])  # aux params (see model function)
+    params_fit_multi: reactive.Value[list] = reactive.Value([])
+    uncert_fit_multi: reactive.Value[list] = reactive.Value([])
+    residuals_multi: reactive.Value[list] = reactive.Value([])    
     nrecs = reactive.Value(0)
     aux_df: pd.DataFrame = reactive.Value()
 
@@ -248,7 +273,7 @@ def server(input, output, session):
     @output
     @render.plot(alt="Preview of the loaded spectra")
     @reactive.event(input.b_preview)
-    def preview_data():
+    def preview_spectrum():
         if input.input_files() is None:
             fig, ax = plt.subplots()
             ax = plt.text(0.4, 0.4, "Please upload your spectra first")
@@ -800,6 +825,26 @@ def server(input, output, session):
 
 
         return fig
+
+
+    # this shows the preview of the loaded spectra and multifit model funtion with initial parameters
+    # when "Preview multifit button" is pressed
+    @output
+    @render.plot(alt="Preview of the loaded spectra")
+    @reactive.event(input.b_preview_multifit)
+    def preview_spectrum_multifit():
+        if input.input_files() is None:
+            fig, ax = plt.subplots()
+            ax = plt.text(0.4, 0.4, "Please upload your spectra first")
+            return fig
+        if input.aux_data() is None:
+            fig, ax = plt.subplots()
+            ax = plt.text(0.4, 0.4, "Please upload data on the recordings pressures, temperatures, etc")
+            return fig
+        if (input.partition() is None) and not input.s_nopart():
+            fig, ax = plt.subplots()
+            ax = plt.text(0.4, 0.4, "Please upload your partition data")
+            return fig
 
     # @render_widget
     # def spectra_info():
