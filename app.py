@@ -123,7 +123,7 @@ app_ui = ui.page_fluid(
                                        ui.input_checkbox_group("jac_check_multi", "",
                                                                multi_params_dict, selected=list(multi_params_dict.keys()))), 
                       ui.panel_main(ui.h4("Multifit initial values"),
-                                    ui.row(ui.column(4, ui.input_numeric("mI0", "Intensity, 1e-25 cm/mol", value=33.)),
+                                    ui.row(ui.column(4, ui.input_numeric("mint", "Intensity, 1e-25 cm/mol", value=33.)),
                                            ui.column(4, ui.input_numeric("melow", "Lower level energy, 1/cm", value=0.)),
                                            ui.column(4, ui.input_numeric("mmolm", "Molecular mass, a.m.u.", value=28.))
                                            ),
@@ -149,16 +149,16 @@ app_ui = ui.page_fluid(
                                            ui.column(3, ui.input_numeric("mny0s", "n mixing self", value=0.78)),
                                            ui.column(3, ui.input_numeric("my0f", "Mixing foreign", value=0.000006)),
                                            ui.column(3, ui.input_numeric("mny0f", "n mixing foreign", value=0.78))),
-                                    ui.row(ui.column(3, ui.input_numeric("mnus", "Vel.chn. rate self", value=0.15)),
-                                           ui.column(3, ui.input_numeric("mnnus", "n nu_vc self", value=0.78)),
-                                           ui.column(3, ui.input_numeric("mnuf", "Vel.chn. rate foreign", value=0.15)),
-                                           ui.column(3, ui.input_numeric("mnnuf", "n nu_vc foreign", value=0.78))),
-                                    ui.row(ui.column(3, ui.input_numeric("mcons", "Continuum self", value=5.e-18)),
-                                           ui.column(3, ui.input_numeric("mncons", "n C self", value=0.0)),
-                                           ui.column(3, ui.input_numeric("mconf", "Continuum foreign", value=5.e-18)),
-                                           ui.column(3, ui.input_numeric("mnconf", "n C foreign", value=0.0))),
+                                    ui.row(ui.column(3, ui.input_numeric("mnuvcs", "Vel.chn. rate self", value=0.15)),
+                                           ui.column(3, ui.input_numeric("mnnuvcs", "n nu_vc self", value=0.78)),
+                                           ui.column(3, ui.input_numeric("mnuvcf", "Vel.chn. rate foreign", value=0.15)),
+                                           ui.column(3, ui.input_numeric("mnnuvcf", "n nu_vc foreign", value=0.78))),
+                                    ui.row(ui.column(3, ui.input_numeric("mcs", "Continuum self", value=5.e-18)),
+                                           ui.column(3, ui.input_numeric("mncs", "n C self", value=0.0)),
+                                           ui.column(3, ui.input_numeric("mcf", "Continuum foreign", value=5.e-18)),
+                                           ui.column(3, ui.input_numeric("mncf", "n C foreign", value=0.0))),
                                     ui.row(ui.column(6, ui.input_numeric("mpow", "power factor", value=0.)),
-                                           ui.column(6, ui.input_numeric("mscale", "scale factor", value=1.0)),),
+                                           ui.column(6, ui.input_numeric("mscl", "scale factor", value=1.0)),),
                                     ui.row(ui.column(3, ui.input_numeric("mbl0", "Baseline 0", value=0.0)),
                                            ui.column(3, ui.input_numeric("mbl1", "Baseline 1", value=0.0)),
                                            ui.column(3, ui.input_numeric("mbl2", "Baseline 2", value=0.0)),
@@ -845,6 +845,47 @@ def server(input, output, session):
             fig, ax = plt.subplots()
             ax = plt.text(0.4, 0.4, "Please upload your partition data")
             return fig
+                
+        aux_df.set(aux_df.get().reindex(names.get()))
+        # read the list of the loaded filenames etc
+        f: list[FileInfo] = input.input_files()
+        
+        aux_data = aux_df.get().to_numpy(dtype=float)
+        p_self = aux_data[:, 0]  # self pressure, Torr
+        p_for = aux_data[:, 1]  # foreign pressure, Torr
+        tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
+        dev = aux_data[:, 3]  # frq deviation where applicable, MHz (for RAD and VID)
+        rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
+        clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VID)
+
+        tmp_recs = recording.get()
+
+        for ifil in range(len(f)):            
+            rec_cur = tmp_recs[ifil]  # recording
+            f_cur = rec_cur[:, 0]  # frequency
+            s_cur = rec_cur[:, 1]  # signal
+            fr_factor = 1.  # to recalc GHz to MHz when necessary
+
+            aux_cur = np.zeroz((rec_cur.shape[0], aux_data.shape[1]+2))            
+            for i_aux in range(aux_data.shape[1]):
+                aux_cur[:, i_aux] = aux_data[ifil, i_aux]
+
+            if f_cur[0] < 1000.:
+                fr_factor = 1000.            
+            if ifil == 0:
+                frqs = np.copy(f_cur)
+                sgnl = np.copy(s_cur)
+                aux_list = np.copy(aux_cur)
+            else:
+                frqs = np.concatenate((frqs, f_cur))
+                sgnl = np.concatenate((sgnl, f_cur))
+                aux_list = np.concatenate((aux_list, aux_cur))
+
+        frqs[:] *= fr_factor
+
+        fig, ax = plt.subplots(1, len(f), sharey=True)
+
+            
 
     # @render_widget
     # def spectra_info():
