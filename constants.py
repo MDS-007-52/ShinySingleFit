@@ -34,7 +34,7 @@ single_params_dict = {"frq": "Central freq",
                       "bl3": "Baseline 3"}
 
 multi_params_dict = {"mint": "Intensity",
-                     "mfrq": "Central freq",                      
+                     "mf0": "Central freq",                      
                      "mg0s": "Gamma 0 self",
                      "mg2s": "Gamma 2 self",
                      "mg0f": "Gamma 0 foreign",
@@ -72,7 +72,7 @@ multi_params_dict = {"mint": "Intensity",
                      "mbl3": "Baseline 3"}
 
 multi_params_indx = {"mint": 0,
-                     "mfrq": 1,
+                     "mf0": 1,
                      "mg0s": 2,
                      "mg2s": 3,
                      "mg0f": 4,

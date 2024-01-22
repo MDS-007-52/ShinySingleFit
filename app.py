@@ -182,6 +182,7 @@ def server(input, output, session):
     f_preview = reactive.Value(False)  # flag that spectra are loaded and preview is available
     f_fit = reactive.Value(False)  # flag that fit is finished
     f_fit_multi = reactive.Value(False)  # flag that multifit is finished
+    part_data_global: reactive.Value[list] = reactive.Value([])
     params_fit: reactive.Value[list] = reactive.Value([])  # params from fit
     uncert_fit: reactive.Value[list] = reactive.Value([])  # uncertainties
     params_fit_aux: reactive.Value[list] = reactive.Value([])  # aux params (see model function)
@@ -227,6 +228,7 @@ def server(input, output, session):
         if f_aux.get() and f_part.get() and not (input.input_files() is None):
             f_preview.set(True)
 
+
     @reactive.Effect
     @reactive.event(input.partition)
     def _():
@@ -236,6 +238,15 @@ def server(input, output, session):
             f_part.set(True)
         if f_aux.get() and f_part.get() and not (input.input_files() is None):
             f_preview.set(True)
+        tmp_part_data = np.loadtxt(input.partition()[0]["datapath"],
+                                   dtype='float', comments='#', delimiter=None,
+                                   unpack=False)  # partition data for intensity
+        tmp_part_t = tmp_part_data[:, 0]
+        tmp_part_q = tmp_part_data[:, 1]
+        out_list = []
+        out_list.append(tmp_part_t)
+        out_list.append(tmp_part_q)
+        part_data_global.set(out_list)
 
     @output
     @render.ui
@@ -833,18 +844,18 @@ def server(input, output, session):
     @render.plot(alt="Preview of the loaded spectra")
     @reactive.event(input.b_preview_multifit)
     def preview_spectrum_multifit():
-        if input.input_files() is None:
-            fig, ax = plt.subplots()
-            ax = plt.text(0.4, 0.4, "Please upload your spectra first")
-            return fig
-        if input.aux_data() is None:
-            fig, ax = plt.subplots()
-            ax = plt.text(0.4, 0.4, "Please upload data on the recordings pressures, temperatures, etc")
-            return fig
-        if (input.partition() is None) and not input.s_nopart():
-            fig, ax = plt.subplots()
-            ax = plt.text(0.4, 0.4, "Please upload your partition data")
-            return fig
+        # if input.input_files() is None:
+        #     fig, ax = plt.subplots()
+        #     ax = plt.text(0.4, 0.4, "Please upload your spectra first")
+        #     return fig
+        # if input.aux_data() is None:
+        #     fig, ax = plt.subplots()
+        #     ax = plt.text(0.4, 0.4, "Please upload data on the recordings pressures, temperatures, etc")
+        #     return fig
+        # if (input.partition() is None) and not input.s_nopart():
+        #     fig, ax = plt.subplots()
+        #     ax = plt.text(0.4, 0.4, "Please upload your partition data")
+        #     return fig
                 
         aux_df.set(aux_df.get().reindex(names.get()))
         # read the list of the loaded filenames etc
@@ -866,9 +877,27 @@ def server(input, output, session):
             s_cur = rec_cur[:, 1]  # signal
             fr_factor = 1.  # to recalc GHz to MHz when necessary
 
-            aux_cur = np.zeroz((rec_cur.shape[0], aux_data.shape[1]+2))            
+            aux_cur = np.zeros((rec_cur.shape[0], aux_data.shape[1]+3))            
             for i_aux in range(aux_data.shape[1]):
                 aux_cur[:, i_aux] = aux_data[ifil, i_aux]
+
+            aux_cur[:, -1] = ifil
+
+            part_t, part_q = part_data_global.get()
+            partition_factor = 1.
+            if not input.s_nopart:
+                partition_factor = qpart(tmpr[ifil], t_ref, part_t, part_q)
+            strength = partition_factor \
+                       * math.exp(-c2 * input.melow() / tmpr[ifil]) \
+                       * (1 - math.exp(-c2 * input.mf0() / (tmpr[ifil] * mhz_in_cm))) \
+                       / math.exp(-c2 * input.melow() / t_ref) \
+                       / (1 - math.exp(-c2 * input.mf0() / (t_ref * mhz_in_cm)))
+            # molecule and thermodynamics-related factors
+            strength *= input.mint() * p_self[ifil] * k_st * 1.e-25 / tmpr[ifil]
+            aux_cur[:, -2] = strength
+
+            aux_cur[:, -3] = (input.mf0() / clight) \
+                       * math.sqrt(2 * math.log(2.) * tmpr[ifil] / (input.mmolm() * k_vs_aem))
 
             if f_cur[0] < 1000.:
                 fr_factor = 1000.            
@@ -878,12 +907,18 @@ def server(input, output, session):
                 aux_list = np.copy(aux_cur)
             else:
                 frqs = np.concatenate((frqs, f_cur))
-                sgnl = np.concatenate((sgnl, f_cur))
+                sgnl = np.concatenate((sgnl, s_cur))
                 aux_list = np.concatenate((aux_list, aux_cur))
 
         frqs[:] *= fr_factor
 
-        fig, ax = plt.subplots(1, len(f), sharey=True)
+        # fig, ax = plt.subplots(1, len(f), sharey=True)
+        fig, ax = plt.subplots()
+        pnum = np.arange(len(frqs))
+        ax.plot(pnum, sgnl, 'ro')
+        ax.set_xlabel('Points')
+        ax.set_ylabel('Signal')
+        return fig
 
             
 
