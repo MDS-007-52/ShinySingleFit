@@ -870,6 +870,7 @@ def server(input, output, session):
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VID)
 
         tmp_recs = recording.get()
+        tmp_scales = np.ones(len(f))
 
         for ifil in range(len(f)):            
             rec_cur = tmp_recs[ifil]  # recording
@@ -899,6 +900,9 @@ def server(input, output, session):
             aux_cur[:, -3] = (input.mf0() / clight) \
                        * math.sqrt(2 * math.log(2.) * tmpr[ifil] / (input.mmolm() * k_vs_aem))
 
+            if rtype[ifil] in [1, 2, 3]:
+                tmp_scales[ifil] = strength * clen[ifil] / max(s_cur)
+
             if f_cur[0] < 1000.:
                 fr_factor = 1000.            
             if ifil == 0:
@@ -915,7 +919,56 @@ def server(input, output, session):
         # fig, ax = plt.subplots(1, len(f), sharey=True)
         fig, ax = plt.subplots()
         pnum = np.arange(len(frqs))
+
+        mnpar = n_const_par + len(f) * n_add_par  # number of params for multifit
+        params = [0.] * mnpar # np.zeros(mnpar)
+        params[multi_params_indx['mint']] = 1.
+        params[multi_params_indx['mf0']] = input.mf0()
+        params[multi_params_indx['mg0s']] = input.mg0s()
+        params[multi_params_indx['mg0f']] = input.mg0f()
+        params[multi_params_indx['mg2s']] = input.mg2s()
+        params[multi_params_indx['mg2f']] = input.mg2f()
+        params[multi_params_indx['md0s']] = input.md0s()
+        params[multi_params_indx['md0f']] = input.md0f()
+        params[multi_params_indx['md2s']] = input.md2s()
+        params[multi_params_indx['md2f']] = input.md2f()
+        params[multi_params_indx['my0s']] = input.my0s()
+        params[multi_params_indx['my0f']] = input.my0f()
+        params[multi_params_indx['mnuvcs']] = input.mnuvcs()
+        params[multi_params_indx['mnuvcf']] = input.mnuvcf()
+        params[multi_params_indx['mcs']] = input.mcs()
+        params[multi_params_indx['mcf']] = input.mcf()
+        params[multi_params_indx['mfrab']] = input.mfrab()
+        params[multi_params_indx['mng0s']] = input.mng0s()
+        params[multi_params_indx['mng0f']] = input.mng0f()
+        params[multi_params_indx['mng2s']] = input.mng2s()
+        params[multi_params_indx['mng2f']] = input.mng2f()
+        params[multi_params_indx['mnd0s']] = input.mnd0s()
+        params[multi_params_indx['mnd0f']] = input.mnd0f()
+        params[multi_params_indx['mnd2s']] = input.mnd2s()
+        params[multi_params_indx['mnd2f']] = input.mnd2f()
+        params[multi_params_indx['mny0s']] = input.mny0s()
+        params[multi_params_indx['mny0f']] = input.mny0f()
+        params[multi_params_indx['mnnuvcs']] = input.mnnuvcs()
+        params[multi_params_indx['mnnuvcf']] = input.mnnuvcf()
+        params[multi_params_indx['mncs']] = input.mncs()
+        params[multi_params_indx['mncf']] = input.mncf()
+        
+        for ifil in range(len(f)):
+            istart = n_const_par + ifil * n_add_par
+            params[istart] = tmp_scales[ifil]  # integral intensity correction
+            params[istart+1] = 0.  # radiation source power vs frequency correction
+            params[istart+2] = 0.  # bl0
+            params[istart+3] = 0.  # bl1
+            params[istart+4] = 0.  # bl2
+            params[istart+5] = 0.  # bl3
+        
+        params = np.asarray(params)
+
+        model0 = mdl_multi(frqs, params, aux_list)
+
         ax.plot(pnum, sgnl, 'ro')
+        ax.plot(pnum, model0, 'b-')
         ax.set_xlabel('Points')
         ax.set_ylabel('Signal')
         return fig

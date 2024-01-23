@@ -8,8 +8,10 @@ def dif_htp(sg, sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, strength_in, dev, 
 
     sg_m = sg[:] - dev
     sg_p = sg[:] + dev
-    absor_minus, absor_im = htp(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, 0.0, sg - dev, Ylm=0.0)
-    absor_plus, absor_im = htp(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, 0.0, sg + dev, Ylm=0.0)
+    absor_minus, _ = htp(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, 0.0, sg_m, Ylm=0.0)
+    absor_plus, _ = htp(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, 0.0, sg_p, Ylm=0.0)
+    absor_minus[:] *= sg_m[:]**2/sg0**2
+    absor_plus[:] *= sg_p[:]**2/sg0**2
 
     if tpl == 1:
         absor_minus[:] = scale * (1.0 - np.exp(-absor_minus[:] * strength_in)) * (1 + pow * (sg_m[:] - sg0))

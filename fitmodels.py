@@ -1,7 +1,8 @@
 import numpy as np
-from SDRP import SDRP
+# from SDRP import SDRP
 from htp import htp
 from dif_htp import dif_htp
+from constants import *
 
 
 def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
@@ -83,8 +84,109 @@ def mdljac(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params
     return jac.T
 
 
+def calc_g_simple(p_self: float, p_for: float, temp: float,
+                  g_self: float, g_for: float, ng_self: float, ng_for: float) -> float:
+    return g_self * p_self * (t_ref / temp) ** ng_self + g_for * p_for * (t_ref / temp) ** ng_for
+
+
 def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
-    pass
+    absor = np.empty_like(frq)
+    nfil = int(max(aux_params[:, -1]))+1
+    for ifil in range(nfil):
+        ### preparing data for model profile generation
+        ### within current recording filtered by the last column of aux_params
+        tmp_where = np.where(aux_params[:, -1] == ifil)
+        frq_cur = frq[tmp_where]  # frequencies for current recording number ifil
+        p_s = aux_params[tmp_where][0, 0]  # self-pressure
+        p_f = aux_params[tmp_where][0, 1]  # foreign-pressure
+        tmpr = aux_params[tmp_where][0, 2]  # temperature
+        dev = aux_params[tmp_where][0, 3]  # temperature
+        rtype = int(aux_params[tmp_where][0, 4])  # line index
+        clen = aux_params[tmp_where][0, 5]  # temperature        
+        gdop = aux_params[tmp_where][0, -3]
+
+        ### Calculation of parameters for the profile
+
+        ### Line strength
+        tmpS = aux_params[tmp_where][0, -2]  # statistical factor
+        if rtype == 0:
+            tmpS *= 1.E5
+        else:
+            tmpS *= clen
+        ### Line center
+        frq0 = params[1]
+        ### G0 width (speed-independent HWHM)
+        id_s = multi_params_indx["mg0s"]  #    instead of remebering indices of params
+        id_f = multi_params_indx["mg0f"]  #    i put them into dictionary
+        id_ns = multi_params_indx["mng0s"]  #  with more ore less intuitive keys
+        id_nf = multi_params_indx["mng0f"]  #  more code but also more clarity
+        tmpG0 = calc_g_simple(p_s, p_f, tmpr,
+                              params[id_s], params[id_f], params[id_ns], params[id_nf])
+        if rtype in [1, 2, 3]:          
+            id_frab = multi_params_indx["mfrab"]
+            frab = params[id_frab]
+            tmpG0 = np.sqrt(tmpG0**2 + frab**2)  
+            # for RAD and VID spectrometers saturation leads to extra HWHM
+        ### G2 width (speed-dependend part)
+        id_s = multi_params_indx["mg2s"]
+        id_f = multi_params_indx["mg2f"]
+        id_ns = multi_params_indx["mng2s"]
+        id_nf = multi_params_indx["mng2f"]
+        tmpG2 = calc_g_simple(p_s, p_f, tmpr,
+                              params[id_s], params[id_f], params[id_ns], params[id_nf])
+        ### SI pressure shift of central frq
+        id_s = multi_params_indx["md0s"]
+        id_f = multi_params_indx["md0f"]
+        id_ns = multi_params_indx["mnd0s"]
+        id_nf = multi_params_indx["mnd0f"]
+        tmpD0 = calc_g_simple(p_s, p_f, tmpr,
+                              params[id_s], params[id_f], params[id_ns], params[id_nf])
+        ### SD part of pressure shift of central frq
+        id_s = multi_params_indx["md2s"]
+        id_f = multi_params_indx["md2f"]
+        id_ns = multi_params_indx["mnd2s"]
+        id_nf = multi_params_indx["mnd2f"]
+        tmpD2 = calc_g_simple(p_s, p_f, tmpr,
+                              params[id_s], params[id_f], params[id_ns], params[id_nf])
+        ### mixing parameter
+        id_s = multi_params_indx["my0s"]
+        id_f = multi_params_indx["my0f"]
+        id_ns = multi_params_indx["mny0s"]
+        id_nf = multi_params_indx["mny0f"]
+        tmpY0 = calc_g_simple(p_s, p_f, tmpr,
+                              params[id_s], params[id_f], params[id_ns], params[id_nf])
+        ### Vel.chng. collisions rate
+        id_s = multi_params_indx["mnuvcs"]
+        id_f = multi_params_indx["mnuvcf"]
+        id_ns = multi_params_indx["mnnuvcs"]
+        id_nf = multi_params_indx["mnnuvcf"]
+        tmpnu = calc_g_simple(p_s, p_f, tmpr,
+                              params[id_s], params[id_f], params[id_ns], params[id_nf])
+        ### Continuum
+        id_s = multi_params_indx["mcs"]
+        id_f = multi_params_indx["mcf"]
+        id_ns = multi_params_indx["mncs"]
+        id_nf = multi_params_indx["mncf"]
+        cs = params[id_s]
+        cf = params[id_f]
+        ncs = params[id_ns]
+        ncf = params[id_nf]
+        tmp_conti = p_s * (p_s * cs * (t_ref / tmpr)**ncs + p_f * cf * (t_ref / tmpr)**ncf)
+
+        i_p_rec = n_const_par + ifil * n_add_par  # index of params related to current recording
+        if rtype == 0:
+            abs_htp, _ =  htp(frq0, gdop, tmpG0, tmpG2, tmpD0, tmpD2, tmpnu, 0., frq_cur, Ylm=tmpY0)       
+            abs_htp[:] = abs_htp[:] * tmpS * params[i_p_rec] * (frq_cur[:] / frq0)**2
+            abs_htp[:] += tmp_conti * frq_cur[:]**2
+            absor[tmp_where] = abs_htp
+        else:
+            abs_htp = dif_htp(frq_cur, frq0, gdop, tmpG0, tmpG2, tmpD0, tmpD2, tmpnu, 
+                              tmpS, dev, params[i_p_rec], params[i_p_rec+1], rtype)
+            abs_htp[:] += params[i_p_rec+2] + params[i_p_rec+3] * (frq_cur[:] - params[1]) \
+            + params[i_p_rec+4] * (frq_cur - params[1]) ** 2 + params[i_p_rec+5] * (frq_cur - params[1]) ** 3
+            absor[tmp_where] = abs_htp
+                
+    return absor
 
 
 def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
