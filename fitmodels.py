@@ -91,7 +91,8 @@ def calc_g_simple(p_self: float, p_for: float, temp: float,
 
 def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
     absor = np.empty_like(frq)
-    nfil = int(max(aux_params[:, -1]))+1
+    nfil = int(max(aux_params[:, -1]))+1    
+    # print(params[n_const_par:])
     for ifil in range(nfil):
         ### preparing data for model profile generation
         ### within current recording filtered by the last column of aux_params
@@ -108,7 +109,7 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
         ### Calculation of parameters for the profile
 
         ### Line strength
-        tmpS = aux_params[tmp_where][0, -2]  # statistical factor
+        tmpS = aux_params[tmp_where][0, -2]  # statistical factor        
         if rtype == 0:
             tmpS *= 1.E5
         else:
@@ -120,6 +121,7 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
         id_f = multi_params_indx["mg0f"]  #    i put them into dictionary
         id_ns = multi_params_indx["mng0s"]  #  with more ore less intuitive keys
         id_nf = multi_params_indx["mng0f"]  #  more code but also more clarity
+        
         tmpG0 = calc_g_simple(p_s, p_f, tmpr,
                               params[id_s], params[id_f], params[id_ns], params[id_nf])
         if rtype in [1, 2, 3]:          
@@ -181,7 +183,7 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
             absor[tmp_where] = abs_htp
         else:
             abs_htp = dif_htp(frq_cur, frq0, gdop, tmpG0, tmpG2, tmpD0, tmpD2, tmpnu, 
-                              tmpS, dev, params[i_p_rec], params[i_p_rec+1], rtype)
+                              tmpS, dev, params[i_p_rec], params[i_p_rec+1], rtype)            
             abs_htp[:] += params[i_p_rec+2] + params[i_p_rec+3] * (frq_cur[:] - params[1]) \
             + params[i_p_rec+4] * (frq_cur - params[1]) ** 2 + params[i_p_rec+5] * (frq_cur - params[1]) ** 3
             absor[tmp_where] = abs_htp

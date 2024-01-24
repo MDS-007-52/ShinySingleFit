@@ -844,19 +844,19 @@ def server(input, output, session):
     @render.plot(alt="Preview of the loaded spectra")
     @reactive.event(input.b_preview_multifit)
     def preview_spectrum_multifit():
-        # if input.input_files() is None:
-        #     fig, ax = plt.subplots()
-        #     ax = plt.text(0.4, 0.4, "Please upload your spectra first")
-        #     return fig
-        # if input.aux_data() is None:
-        #     fig, ax = plt.subplots()
-        #     ax = plt.text(0.4, 0.4, "Please upload data on the recordings pressures, temperatures, etc")
-        #     return fig
-        # if (input.partition() is None) and not input.s_nopart():
-        #     fig, ax = plt.subplots()
-        #     ax = plt.text(0.4, 0.4, "Please upload your partition data")
-        #     return fig
-                
+        if input.input_files() is None:
+             fig, ax = plt.subplots()
+             ax = plt.text(0.4, 0.4, "Please upload your spectra first")
+             return fig
+        if input.aux_data() is None:
+            fig, ax = plt.subplots()
+            ax = plt.text(0.4, 0.4, "Please upload data on the recordings pressures, temperatures, etc")
+            return fig
+        if (input.partition() is None) and not input.s_nopart():
+            fig, ax = plt.subplots()
+            ax = plt.text(0.4, 0.4, "Please upload your partition data")
+            return fig
+        print('Preview start')
         aux_df.set(aux_df.get().reindex(names.get()))
         # read the list of the loaded filenames etc
         f: list[FileInfo] = input.input_files()
@@ -882,6 +882,8 @@ def server(input, output, session):
             for i_aux in range(aux_data.shape[1]):
                 aux_cur[:, i_aux] = aux_data[ifil, i_aux]
 
+            aux_cur[:, 2] = [t+273.5 if abs(t) < 100. else t for t in aux_cur[:, 2]]
+
             aux_cur[:, -1] = ifil
 
             part_t, part_q = part_data_global.get()
@@ -900,8 +902,10 @@ def server(input, output, session):
             aux_cur[:, -3] = (input.mf0() / clight) \
                        * math.sqrt(2 * math.log(2.) * tmpr[ifil] / (input.mmolm() * k_vs_aem))
 
-            if rtype[ifil] in [1, 2, 3]:
-                tmp_scales[ifil] = strength * clen[ifil] / max(s_cur)
+            if rtype[ifil] == 0:
+                s_cur[:] *= 1.E5
+            # if rtype[ifil] in [1, 2, 3]:
+            #     tmp_scales[ifil] = strength * clen[ifil] / max(s_cur)
 
             if f_cur[0] < 1000.:
                 fr_factor = 1000.            
@@ -914,11 +918,8 @@ def server(input, output, session):
                 sgnl = np.concatenate((sgnl, s_cur))
                 aux_list = np.concatenate((aux_list, aux_cur))
 
-        frqs[:] *= fr_factor
-
-        # fig, ax = plt.subplots(1, len(f), sharey=True)
-        fig, ax = plt.subplots()
-        pnum = np.arange(len(frqs))
+        frqs[:] *= fr_factor                
+        # pnum = np.arange(len(frqs))
 
         mnpar = n_const_par + len(f) * n_add_par  # number of params for multifit
         params = [0.] * mnpar # np.zeros(mnpar)
@@ -956,7 +957,7 @@ def server(input, output, session):
         
         for ifil in range(len(f)):
             istart = n_const_par + ifil * n_add_par
-            params[istart] = tmp_scales[ifil]  # integral intensity correction
+            params[istart] = 1.  # integral intensity correction
             params[istart+1] = 0.  # radiation source power vs frequency correction
             params[istart+2] = 0.  # bl0
             params[istart+3] = 0.  # bl1
@@ -964,13 +965,33 @@ def server(input, output, session):
             params[istart+5] = 0.  # bl3
         
         params = np.asarray(params)
+        # print(params)
 
         model0 = mdl_multi(frqs, params, aux_list)
 
-        ax.plot(pnum, sgnl, 'ro')
-        ax.plot(pnum, model0, 'b-')
-        ax.set_xlabel('Points')
-        ax.set_ylabel('Signal')
+        for ifil in range(len(f)):                        
+            tmp_where = aux_list[:, -1] == ifil
+            m_cur = model0[tmp_where]
+            s_cur = sgnl[tmp_where]
+            istart = n_const_par + ifil * n_add_par
+            params[istart] = np.max(s_cur)/np.max(m_cur)
+            # print('Scale', ifil, params[istart])
+        
+        model0 = mdl_multi(frqs, params, aux_list)
+        
+        # fig, ax = plt.subplots()
+        fig, ax = plt.subplots(1, len(f), sharey=True)
+        for ifil in range(len(f)):
+            tmp_where = aux_list[:, -1] == ifil
+            f_cur = frqs[tmp_where]
+            s_cur = sgnl[tmp_where]
+            m_cur = model0[tmp_where]
+            ax[ifil].plot(f_cur - input.mf0(), s_cur, 'ro')
+            ax[ifil].plot(f_cur - input.mf0(), m_cur, 'b-')
+            # ax[ifil].set_xlabel('Frequency, GHz')
+            ax[ifil].text(0.2, 0.8, 'P_self = '+str(p_self[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
+            ax[ifil].text(0.2, 0.7, 'P_foreign = '+str(p_for[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
+        # print('Preview finish')
         return fig
 
             
