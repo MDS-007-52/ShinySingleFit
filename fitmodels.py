@@ -91,7 +91,7 @@ def calc_g_simple(p_self: float, p_for: float, temp: float,
 
 def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
     absor = np.empty_like(frq)
-    nfil = int(max(aux_params[:, -1]))+1    
+    nfil = int(max(aux_params[:, -1]))+1
     # print(params[n_const_par:])
     for ifil in range(nfil):
         ### preparing data for model profile generation
@@ -109,7 +109,7 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
         ### Calculation of parameters for the profile
 
         ### Line strength
-        tmpS = aux_params[tmp_where][0, -2]  # statistical factor        
+        tmpS = aux_params[tmp_where][0, -2]  # line strength
         if rtype == 0:
             tmpS *= 1.E5
         else:
@@ -192,4 +192,77 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
 
 
 def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
-    pass
+    jac = np.zeros((len(params), len(frq)))
+    model1 = mdl(frq, params, aux_params=aux_params)
+    dpar = 1.E-6
+    # list of params requiring numeric derivative
+    # generally these are: line center, all width, shift and mixing parameters
+    # together with their T-dependence power factors
+    params_deriv_numeric = [multi_params_indx[x] for x in multi_params_numeric_deriv]
+    for ipar in params_deriv_numeric:
+        if jac_flag[ipar] == 1.:
+            params2 = np.copy(params)
+            params2[ipar] = params2[ipar] + dpar
+            model2 = mdl(frq, params2, aux_params=aux_params)
+            jac[:, ipar] = (model2 - model1) / dpar
+
+    ### Continuum parameters derivatives
+    # index of the corresponding parameters are:
+    id_s = multi_params_indx["mcs"]
+    id_f = multi_params_indx["mcf"]
+    id_ns = multi_params_indx["mncs"]
+    id_nf = multi_params_indx["mncf"]
+
+    tmp_where = np.where(aux_params[:, -1] == 0)
+    cs = params[id_s]
+    cf = params[id_f]
+    ncs = params[id_ns]
+    ncf = params[id_nf]
+
+    if jac_flag[id_s] == 1:
+        jac[tmp_where][:, id_s] = aux_params[tmp_where][:, 0]**2 * frq[tmp_where][:]**2 * (t_ref / aux_params[tmp_where][:, 2])**ncs
+    if jac_flag[id_f] == 1:
+        jac[tmp_where][:, id_f] = aux_params[tmp_where][:, 0] * aux_params[tmp_where][:, 1] * frq[tmp_where][:] * (t_ref / aux_params[tmp_where][:, 2])**ncf
+    if jac_flag[id_ns] == 1:
+        pass  # currently let's leave T-dependence of continuum as read-only parameter with no adjustment
+        #jac[tmp_where][:, id_ns] = aux_params[tmp_where][:, 0]**2 * cs * (t_ref / aux_params[tmp_where][:, 2])**ncs * np.log(ncs)
+    if jac_flag[id_nf] == 1:
+        pass
+        #jac[tmp_where][:, id_nf] = aux_params[tmp_where][:, 0] * aux_params[tmp_where][:, 1] * cs * (t_ref / aux_params[tmp_where][:, 2])**ncs * np.log(ncs)
+    
+    ### Derivatives by the individual recording parameters
+    nfil = int(max(aux_params[:, -1]))+1
+
+    ### scaling factor
+    params2 = np.copy(params)
+    # first we make copy of params but with scale equal to 1 (deriv by scale is just)
+    for ifil in range(nfil):
+        i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
+        params2[i_start] = 1.
+        params2[i_start+2] = 0.
+        params2[i_start+3] = 0.
+        params2[i_start+4] = 0.
+        params2[i_start+5] = 0.
+    model2 = mdl_multi(frq, params, aux_params=aux_params)
+    for ifil in range(nfil):
+        i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
+        tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording
+        jac[tmp_where][:, i_start] = model2[tmp_where]
+
+
+    for ifil in range(nfil):
+        tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording
+        i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
+        p_s = aux_params[tmp_where][0, 0]  # self-pressure
+        p_f = aux_params[tmp_where][0, 1]  # foreign-pressure
+        tmpr = aux_params[tmp_where][0, 2]  # temperature
+        dev = aux_params[tmp_where][0, 3]  # temperature
+        rtype = int(aux_params[tmp_where][0, 4])  # record type
+        clen = aux_params[tmp_where][0, 5]  # temperature        
+        gdop = aux_params[tmp_where][0, -3] # dopler width
+        tmpS = aux_params[tmp_where][0, -2]  # line strength
+        if rtype == 0:
+            tmpS *= 1.E5
+        else:
+            tmpS *= clen
+    return jac
