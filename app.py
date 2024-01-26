@@ -195,6 +195,8 @@ def server(input, output, session):
     nrecs = reactive.Value(0)
     aux_df: pd.DataFrame = reactive.Value()
 
+    # Service part just to test things
+
     @output
     @render.text
     @reactive.event(input.b_check)
@@ -206,6 +208,9 @@ def server(input, output, session):
             time.sleep(1)
         p.close()
 
+    ### COMMON SECTION
+        
+    # Processing of the loaded spectra (common for LBL fit and multifit)
     @reactive.Effect
     @reactive.event(input.input_files)
     def _():
@@ -223,6 +228,8 @@ def server(input, output, session):
         if f_aux.get() and f_part.get():
             f_preview.set(True)
 
+    
+    # Processing of the loaded metadata on the experimental conditions etc (common)
     @reactive.Effect
     @reactive.event(input.aux_data)
     def _():
@@ -231,7 +238,8 @@ def server(input, output, session):
         if f_aux.get() and f_part.get() and not (input.input_files() is None):
             f_preview.set(True)
 
-
+    
+    # Processing of the loaded partition function (common)
     @reactive.Effect
     @reactive.event(input.partition)
     def _():
@@ -251,6 +259,8 @@ def server(input, output, session):
         out_list.append(tmp_part_q)
         part_data_global.set(out_list)
 
+
+    # Showing loaded metadata on the experimental conditions etc (common)
     @output
     @render.ui
     def aux_data_show():
@@ -274,6 +284,9 @@ def server(input, output, session):
         aux_df.set(aux_out)
         return ui.HTML(aux_out.to_html(classes="table table-striped"))
 
+    ### LINE-BY-LINE FIT SECTION ###
+
+    # Showing the table of the fitted parameters
     @output
     @render.ui
     def fit_result_table():
@@ -282,26 +295,8 @@ def server(input, output, session):
             headers = ['P self', 'P foreign', 'T'] + headers
             params_show = pd.DataFrame(params_fit.get(), columns=headers)
             return ui.HTML(params_show.to_html(classes="table table-striped"))
-        
-    @output
-    @render.ui
-    def multifit_result_table():
-        if f_fit_multi.get():
-            headers = ['Value', 'Error', 'Parameter']
-            col_params = params_fit_multi.get()
-            col_errors = uncert_fit_multi.get()
-            col_comments = multi_params_dict.values()[0:n_const_par]
-            col_comments_add = multi_params_dict.values()[n_const_par:]
-            nfil = len(recording.get())
-            for ifil in range(nfil):
-                col_comments = col_comments + col_comments_add
-            col_params = pd.Series(col_params)
-            col_errors = pd.Series(col_errors)
-            col_comments = pd.Series(col_comments)
-            params_show = pd.DataFrame((col_params, col_errors, col_comments), columns = headers)
-            return ui.HTML(params_show.to_html(classes="table table-striped"))
-
-
+    
+    
     # this shows the preview of the loaded spectra ("Preview" button)
     @output
     @render.plot(alt="Preview of the loaded spectra")
@@ -411,6 +406,8 @@ def server(input, output, session):
         # spectra_info()
         return fig
 
+    
+    # Showing the status of the data preview (guides user if some data are absent)
     @output
     @render.text
     @reactive.event(input.b_preview)
@@ -426,6 +423,8 @@ def server(input, output, session):
             text_status = 'All data present, see your preview'
         return text_status
 
+    
+    # Run line-by-line fit routine
     @reactive.Effect
     @reactive.event(input.b_fit)  # within this func we get the parameters fitted to each loaded profile
     def _():
@@ -549,137 +548,8 @@ def server(input, output, session):
         f_fit.set(True)
         p.close()
 
-    @reactive.Effect
-    @reactive.event(input.b_multifit)  # within this func we get the parameters fitted to each loaded profile
-    def _():
-        f_fit_multi.set(False)
-        
-        aux_df.set(aux_df.get().reindex(names.get()))
-        # read the list of the loaded filenames etc
-        f: list[FileInfo] = input.input_files()        
-        aux_data = aux_df.get().to_numpy(dtype=float)
-        p_self = aux_data[:, 0]  # self pressure, Torr
-        p_for = aux_data[:, 1]  # foreign pressure, Torr
-        tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
-        dev = aux_data[:, 3]  # frq deviation where applicable, MHz (for RAD and VID)
-        rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
-        clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VID)
-
-        tmp_recs = recording.get()
-        
-
-        for ifil in range(len(f)):            
-            rec_cur = tmp_recs[ifil]  # recording
-            f_cur = rec_cur[:, 0]  # frequency
-            s_cur = rec_cur[:, 1]  # signal
-            fr_factor = 1.  # to recalc GHz to MHz when necessary
-
-            aux_cur = np.zeros((rec_cur.shape[0], aux_data.shape[1]+3))            
-            for i_aux in range(aux_data.shape[1]):
-                aux_cur[:, i_aux] = aux_data[ifil, i_aux]
-
-            aux_cur[:, 2] = [t+273.5 if abs(t) < 100. else t for t in aux_cur[:, 2]]
-
-            aux_cur[:, -1] = ifil
-
-            part_t, part_q = part_data_global.get()
-            partition_factor = 1.
-            if not input.s_nopart:
-                partition_factor = qpart(tmpr[ifil], t_ref, part_t, part_q)
-            strength = partition_factor \
-                       * math.exp(-c2 * input.melow() / tmpr[ifil]) \
-                       * (1 - math.exp(-c2 * input.mf0() / (tmpr[ifil] * mhz_in_cm))) \
-                       / math.exp(-c2 * input.melow() / t_ref) \
-                       / (1 - math.exp(-c2 * input.mf0() / (t_ref * mhz_in_cm)))
-            # molecule and thermodynamics-related factors
-            strength *= input.mint() * p_self[ifil] * k_st * 1.e-25 / tmpr[ifil]
-            aux_cur[:, -2] = strength
-
-            aux_cur[:, -3] = (input.mf0() / clight) \
-                       * math.sqrt(2 * math.log(2.) * tmpr[ifil] / (input.mmolm() * k_vs_aem))
-
-            if rtype[ifil] == 0:
-                s_cur[:] *= 1.E5
-            # if rtype[ifil] in [1, 2, 3]:
-            #     tmp_scales[ifil] = strength * clen[ifil] / max(s_cur)
-
-            if f_cur[0] < 1000.:
-                fr_factor = 1000.            
-            if ifil == 0:
-                frqs = np.copy(f_cur)
-                sgnl = np.copy(s_cur)
-                aux_list = np.copy(aux_cur)
-            else:
-                frqs = np.concatenate((frqs, f_cur))
-                sgnl = np.concatenate((sgnl, s_cur))
-                aux_list = np.concatenate((aux_list, aux_cur))
-
-        frqs[:] *= fr_factor                
-        # pnum = np.arange(len(frqs))
-
-        mnpar = n_const_par + len(f) * n_add_par  # number of params for multifit
-        params0 = [0.] * mnpar # np.zeros(mnpar)
-        tmp_err = np.zeros(mnpar)
-        params0[multi_params_indx['mint']] = 1.
-        params0[multi_params_indx['mf0']] = input.mf0()
-        params0[multi_params_indx['mg0s']] = input.mg0s()
-        params0[multi_params_indx['mg0f']] = input.mg0f()
-        params0[multi_params_indx['mg2s']] = input.mg2s()
-        params0[multi_params_indx['mg2f']] = input.mg2f()
-        params0[multi_params_indx['md0s']] = input.md0s()
-        params0[multi_params_indx['md0f']] = input.md0f()
-        params0[multi_params_indx['md2s']] = input.md2s()
-        params0[multi_params_indx['md2f']] = input.md2f()
-        params0[multi_params_indx['my0s']] = input.my0s()
-        params0[multi_params_indx['my0f']] = input.my0f()
-        params0[multi_params_indx['mnuvcs']] = input.mnuvcs()
-        params0[multi_params_indx['mnuvcf']] = input.mnuvcf()
-        params0[multi_params_indx['mcs']] = input.mcs()
-        params0[multi_params_indx['mcf']] = input.mcf()
-        params0[multi_params_indx['mfrab']] = input.mfrab()
-        params0[multi_params_indx['mng0s']] = input.mng0s()
-        params0[multi_params_indx['mng0f']] = input.mng0f()
-        params0[multi_params_indx['mng2s']] = input.mng2s()
-        params0[multi_params_indx['mng2f']] = input.mng2f()
-        params0[multi_params_indx['mnd0s']] = input.mnd0s()
-        params0[multi_params_indx['mnd0f']] = input.mnd0f()
-        params0[multi_params_indx['mnd2s']] = input.mnd2s()
-        params0[multi_params_indx['mnd2f']] = input.mnd2f()
-        params0[multi_params_indx['mny0s']] = input.mny0s()
-        params0[multi_params_indx['mny0f']] = input.mny0f()
-        params0[multi_params_indx['mnnuvcs']] = input.mnnuvcs()
-        params0[multi_params_indx['mnnuvcf']] = input.mnnuvcf()
-        params0[multi_params_indx['mncs']] = input.mncs()
-        params0[multi_params_indx['mncf']] = input.mncf()
-        
-        for ifil in range(len(f)):
-            istart = n_const_par + ifil * n_add_par
-            params0[istart] = 1.  # integral intensity correction
-            params0[istart+1] = 0.  # radiation source power vs frequency correction
-            params0[istart+2] = 0.  # bl0
-            params0[istart+3] = 0.  # bl1
-            params0[istart+4] = 0.  # bl2
-            params0[istart+5] = 0.  # bl3
-        
-        params0 = np.asarray(params0)
-        # print(params)        
-
-        model0 = mdl_multi(frqs, params0, aux_list)
-
-        for ifil in range(len(f)):                        
-            tmp_where = aux_list[:, -1] == ifil
-            m_cur = model0[tmp_where]
-            s_cur = sgnl[tmp_where]
-            istart = n_const_par + ifil * n_add_par
-            params0[istart] = np.max(s_cur)/np.max(m_cur)
-            # print('Scale', ifil, params0[istart])
-        
-        model0 = mdl_multi(frqs, params0, aux_list)
-        params_fit_multi.set(params0)
-        uncert_fit_multi.set(tmp_err)
-
-        f_fit_multi.set(True)
-
+    
+    # Download the results of the line-by-line fit (lineshape parameters)
     @session.download(filename='fit_params.txt')
     def download_params():
         if f_fit.get():
@@ -711,6 +581,8 @@ def server(input, output, session):
         #     tmp_data = [25., 125., 296.5, 3250., 318., 0., 7.975e-6]
         #     yield '    '.join(['%.5g' % elem for elem in tmp_data] + ['\n'] )
 
+
+    # Download the results of the line-by-line fit (residuals)
     @session.download(filename='residuals.zip')
     def download_resid():
         if f_fit.get():
@@ -729,6 +601,7 @@ def server(input, output, session):
                 yield buf.getvalue()  # return the buffer content as file to download
 
 
+    # Showing the preview of the residuals of the line-by-line fit
     @output
     @render.plot(alt='Fit residuals')
     def preview_fit():
@@ -776,7 +649,10 @@ def server(input, output, session):
             fig, ax = plt.subplots()
             ax.text(0.5, 0.5, 'No residuals to show')
             return fig
+        
 
+    # Showing plots of fitted parameters-vs-pressure for line-by-line fit 
+    # (after pressing "Plot vs pressure" button and setting necessary switches on/off)
     @output
     @render.plot(alt='Parameters vs pressure')
     @reactive.event(input.b_coefs)
@@ -990,6 +866,7 @@ def server(input, output, session):
 
         return fig
 
+    ### MULTIFIT SECTION ###
 
     # this shows the preview of the loaded spectra and multifit model funtion with initial parameters
     # when "Preview multifit button" is pressed
@@ -1147,8 +1024,187 @@ def server(input, output, session):
         # print('Preview finish')
         return fig
 
-            
+    
+    # Preview of the multifit residuals
+    @output
+    @render.plot(alt="Multifit residuals")
+    def preview_multifit():
+        if f_fit_multi.get():
+            fig, ax = plt.subplots(1, nrecs.get(), sharey=True)
+            for ifil in range(nrecs.get()):
+                f_cur = recording.get()[ifil][:, 0]
+                r_cur = residuals_multi.get()[ifil]
+                ax[ifil].plot(f_cur - params_fit_multi.get()[1], r_cur, 'b-')
+                ax[ifil].hlines(y=0., linestyles='dashed', colors='grey')
+        else:
+            fig, ax = plt.subplots()
+            ax.text(0.5, 0.5, 'No residuals to show', transform=ax.transAxes)
+            return fig
 
+    
+    # Processing the "Run multifit" button pressed    
+    @reactive.Effect
+    @reactive.event(input.b_multifit)  
+    def _():
+        f_fit_multi.set(False)
+        
+        aux_df.set(aux_df.get().reindex(names.get()))
+        # read the list of the loaded filenames etc
+        f: list[FileInfo] = input.input_files()        
+        aux_data = aux_df.get().to_numpy(dtype=float)
+        p_self = aux_data[:, 0]  # self pressure, Torr
+        p_for = aux_data[:, 1]  # foreign pressure, Torr
+        tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
+        dev = aux_data[:, 3]  # frq deviation where applicable, MHz (for RAD and VID)
+        rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
+        clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VID)
+
+        tmp_recs = recording.get()
+        
+
+        for ifil in range(len(f)):            
+            rec_cur = tmp_recs[ifil]  # recording
+            f_cur = rec_cur[:, 0]  # frequency
+            s_cur = rec_cur[:, 1]  # signal
+            fr_factor = 1.  # to recalc GHz to MHz when necessary
+
+            aux_cur = np.zeros((rec_cur.shape[0], aux_data.shape[1]+3))            
+            for i_aux in range(aux_data.shape[1]):
+                aux_cur[:, i_aux] = aux_data[ifil, i_aux]
+
+            aux_cur[:, 2] = [t+273.5 if abs(t) < 100. else t for t in aux_cur[:, 2]]
+
+            aux_cur[:, -1] = ifil
+
+            part_t, part_q = part_data_global.get()
+            partition_factor = 1.
+            if not input.s_nopart:
+                partition_factor = qpart(tmpr[ifil], t_ref, part_t, part_q)
+            strength = partition_factor \
+                       * math.exp(-c2 * input.melow() / tmpr[ifil]) \
+                       * (1 - math.exp(-c2 * input.mf0() / (tmpr[ifil] * mhz_in_cm))) \
+                       / math.exp(-c2 * input.melow() / t_ref) \
+                       / (1 - math.exp(-c2 * input.mf0() / (t_ref * mhz_in_cm)))
+            # molecule and thermodynamics-related factors
+            strength *= input.mint() * p_self[ifil] * k_st * 1.e-25 / tmpr[ifil]
+            aux_cur[:, -2] = strength
+
+            aux_cur[:, -3] = (input.mf0() / clight) \
+                       * math.sqrt(2 * math.log(2.) * tmpr[ifil] / (input.mmolm() * k_vs_aem))
+
+            if rtype[ifil] == 0:
+                s_cur[:] *= 1.E5
+            # if rtype[ifil] in [1, 2, 3]:
+            #     tmp_scales[ifil] = strength * clen[ifil] / max(s_cur)
+
+            if f_cur[0] < 1000.:
+                fr_factor = 1000.            
+            if ifil == 0:
+                frqs = np.copy(f_cur)
+                sgnl = np.copy(s_cur)
+                aux_list = np.copy(aux_cur)
+            else:
+                frqs = np.concatenate((frqs, f_cur))
+                sgnl = np.concatenate((sgnl, s_cur))
+                aux_list = np.concatenate((aux_list, aux_cur))
+
+        frqs[:] *= fr_factor                
+        # pnum = np.arange(len(frqs))
+
+        mnpar = n_const_par + len(f) * n_add_par  # number of params for multifit
+        params0 = [0.] * mnpar # np.zeros(mnpar)
+        tmp_err = np.zeros(mnpar)
+        params0[multi_params_indx['mint']] = 1.
+        params0[multi_params_indx['mf0']] = input.mf0()
+        params0[multi_params_indx['mg0s']] = input.mg0s()
+        params0[multi_params_indx['mg0f']] = input.mg0f()
+        params0[multi_params_indx['mg2s']] = input.mg2s()
+        params0[multi_params_indx['mg2f']] = input.mg2f()
+        params0[multi_params_indx['md0s']] = input.md0s()
+        params0[multi_params_indx['md0f']] = input.md0f()
+        params0[multi_params_indx['md2s']] = input.md2s()
+        params0[multi_params_indx['md2f']] = input.md2f()
+        params0[multi_params_indx['my0s']] = input.my0s()
+        params0[multi_params_indx['my0f']] = input.my0f()
+        params0[multi_params_indx['mnuvcs']] = input.mnuvcs()
+        params0[multi_params_indx['mnuvcf']] = input.mnuvcf()
+        params0[multi_params_indx['mcs']] = input.mcs()
+        params0[multi_params_indx['mcf']] = input.mcf()
+        params0[multi_params_indx['mfrab']] = input.mfrab()
+        params0[multi_params_indx['mng0s']] = input.mng0s()
+        params0[multi_params_indx['mng0f']] = input.mng0f()
+        params0[multi_params_indx['mng2s']] = input.mng2s()
+        params0[multi_params_indx['mng2f']] = input.mng2f()
+        params0[multi_params_indx['mnd0s']] = input.mnd0s()
+        params0[multi_params_indx['mnd0f']] = input.mnd0f()
+        params0[multi_params_indx['mnd2s']] = input.mnd2s()
+        params0[multi_params_indx['mnd2f']] = input.mnd2f()
+        params0[multi_params_indx['mny0s']] = input.mny0s()
+        params0[multi_params_indx['mny0f']] = input.mny0f()
+        params0[multi_params_indx['mnnuvcs']] = input.mnnuvcs()
+        params0[multi_params_indx['mnnuvcf']] = input.mnnuvcf()
+        params0[multi_params_indx['mncs']] = input.mncs()
+        params0[multi_params_indx['mncf']] = input.mncf()
+        
+        for ifil in range(nrecs.get()):
+            istart = n_const_par + ifil * n_add_par
+            params0[istart] = 1.  # integral intensity correction
+            params0[istart+1] = 0.  # radiation source power vs frequency correction
+            params0[istart+2] = 0.  # bl0
+            params0[istart+3] = 0.  # bl1
+            params0[istart+4] = 0.  # bl2
+            params0[istart+5] = 0.  # bl3
+        
+        params0 = np.asarray(params0)
+        # print(params)        
+
+        model0 = mdl_multi(frqs, params0, aux_list)
+
+        for ifil in range(nrecs.get()):                        
+            tmp_where = aux_list[:, -1] == ifil
+            m_cur = model0[tmp_where]
+            s_cur = sgnl[tmp_where]
+            istart = n_const_par + ifil * n_add_par
+            params0[istart] = np.max(s_cur)/np.max(m_cur)
+            # print('Scale', ifil, params0[istart])
+        
+        model0 = mdl_multi(frqs, params0, aux_list)
+
+        tmp_resid_multi = []
+        for ifil in range(nrecs.get()):
+            tmp_where = aux_list[:, -1] == ifil
+            m_cur = model0[tmp_where]
+            s_cur = sgnl[tmp_where]
+            tmp_resid = s_cur - m_cur
+            tmp_resid_multi.append(tmp_resid)
+
+        residuals_multi.set(tmp_resid_multi)
+        params_fit_multi.set(params0)
+        uncert_fit_multi.set(tmp_err)
+
+        f_fit_multi.set(True)
+
+    
+    # Showing the results of the multifit routine
+    @output
+    @render.ui
+    def multifit_result_table():
+        if f_fit_multi.get():
+            headers = ['Value', 'Error', 'Parameter']
+            col_params = params_fit_multi.get()
+            col_errors = uncert_fit_multi.get()
+            col_comments = multi_params_dict.values()[0:n_const_par]
+            col_comments_add = multi_params_dict.values()[n_const_par:]
+            nfil = len(recording.get())
+            for ifil in range(nfil):
+                col_comments = col_comments + col_comments_add
+            col_params = pd.Series(col_params)
+            col_errors = pd.Series(col_errors)
+            col_comments = pd.Series(col_comments)
+            params_show = pd.DataFrame((col_params, col_errors, col_comments), columns = headers)
+            return ui.HTML(params_show.to_html(classes="table table-striped"))
+
+    
     # @render_widget
     # def spectra_info():
     #     if input.input_files is None:
