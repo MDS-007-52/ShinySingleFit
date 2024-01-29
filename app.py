@@ -1035,7 +1035,10 @@ def server(input, output, session):
                 f_cur = recording.get()[ifil][:, 0]
                 r_cur = residuals_multi.get()[ifil]
                 ax[ifil].plot(f_cur - params_fit_multi.get()[1], r_cur, 'b-')
-                ax[ifil].hlines(y=0., linestyles='dashed', colors='grey')
+                ax[ifil].hlines(y=0., 
+                                xmin=min(f_cur - params_fit_multi.get()[1]),
+                                xmax=max(f_cur - params_fit_multi.get()[1]),
+                                linestyles='dashed', colors='grey')
         else:
             fig, ax = plt.subplots()
             ax.text(0.5, 0.5, 'No residuals to show', transform=ax.transAxes)
@@ -1044,10 +1047,9 @@ def server(input, output, session):
     
     # Processing the "Run multifit" button pressed    
     @reactive.Effect
-    @reactive.event(input.b_multifit)  
+    @reactive.event(input.b_fit_multifit)  
     def _():
-        f_fit_multi.set(False)
-        
+        f_fit_multi.set(False)        
         aux_df.set(aux_df.get().reindex(names.get()))
         # read the list of the loaded filenames etc
         f: list[FileInfo] = input.input_files()        
@@ -1061,39 +1063,42 @@ def server(input, output, session):
 
         tmp_recs = recording.get()
         
-
+        # prepare data for multifit processing
         for ifil in range(len(f)):            
-            rec_cur = tmp_recs[ifil]  # recording
+            rec_cur = tmp_recs[ifil]  # get recording number ifil
             f_cur = rec_cur[:, 0]  # frequency
             s_cur = rec_cur[:, 1]  # signal
             fr_factor = 1.  # to recalc GHz to MHz when necessary
 
-            aux_cur = np.zeros((rec_cur.shape[0], aux_data.shape[1]+3))            
+            aux_cur = np.zeros((rec_cur.shape[0], aux_data.shape[1]+3))  # array of aux data        
             for i_aux in range(aux_data.shape[1]):
                 aux_cur[:, i_aux] = aux_data[ifil, i_aux]
 
-            aux_cur[:, 2] = [t+273.5 if abs(t) < 100. else t for t in aux_cur[:, 2]]
+            aux_cur[:, 2] = [t+273.5 if abs(t) < 100. else t for t in aux_cur[:, 2]]  # recalc temperature in aux data
 
-            aux_cur[:, -1] = ifil
+            aux_cur[:, -1] = ifil  # the last col of aux_data is number of recording, it is necessary as all data are stacked together
 
-            part_t, part_q = part_data_global.get()
+            # calculate integral intensity with respect to partition etc
+            # currently the program works with only one line profile in the recording, when expanding it to arbitrary number of lines, smth to be done here
+            part_t, part_q = part_data_global.get()  # partition function (info from HITRAN is recommended)
             partition_factor = 1.
             if not input.s_nopart:
-                partition_factor = qpart(tmpr[ifil], t_ref, part_t, part_q)
+                partition_factor = qpart(tmpr[ifil], t_ref, part_t, part_q)  # there is an option for absence of partition
             strength = partition_factor \
                        * math.exp(-c2 * input.melow() / tmpr[ifil]) \
                        * (1 - math.exp(-c2 * input.mf0() / (tmpr[ifil] * mhz_in_cm))) \
                        / math.exp(-c2 * input.melow() / t_ref) \
                        / (1 - math.exp(-c2 * input.mf0() / (t_ref * mhz_in_cm)))
             # molecule and thermodynamics-related factors
-            strength *= input.mint() * p_self[ifil] * k_st * 1.e-25 / tmpr[ifil]
+            strength *= input.mint() * p_self[ifil] * k_st * 1.e-25 / tmpr[ifil]  # the intensity at p_self
             aux_cur[:, -2] = strength
 
             aux_cur[:, -3] = (input.mf0() / clight) \
                        * math.sqrt(2 * math.log(2.) * tmpr[ifil] / (input.mmolm() * k_vs_aem))
 
+            s_factor = 1.
             if rtype[ifil] == 0:
-                s_cur[:] *= 1.E5
+                s_factor = 1.E5
             # if rtype[ifil] in [1, 2, 3]:
             #     tmp_scales[ifil] = strength * clen[ifil] / max(s_cur)
 
@@ -1101,11 +1106,11 @@ def server(input, output, session):
                 fr_factor = 1000.            
             if ifil == 0:
                 frqs = np.copy(f_cur)
-                sgnl = np.copy(s_cur)
+                sgnl = np.copy(s_cur * s_factor)
                 aux_list = np.copy(aux_cur)
             else:
                 frqs = np.concatenate((frqs, f_cur))
-                sgnl = np.concatenate((sgnl, s_cur))
+                sgnl = np.concatenate((sgnl, s_cur * s_factor))
                 aux_list = np.concatenate((aux_list, aux_cur))
 
         frqs[:] *= fr_factor                
@@ -1144,7 +1149,7 @@ def server(input, output, session):
         params0[multi_params_indx['mnnuvcs']] = input.mnnuvcs()
         params0[multi_params_indx['mnnuvcf']] = input.mnnuvcf()
         params0[multi_params_indx['mncs']] = input.mncs()
-        params0[multi_params_indx['mncf']] = input.mncf()
+        params0[multi_params_indx['mncf']] = input.mncf()        
         
         for ifil in range(nrecs.get()):
             istart = n_const_par + ifil * n_add_par
@@ -1155,8 +1160,7 @@ def server(input, output, session):
             params0[istart+4] = 0.  # bl2
             params0[istart+5] = 0.  # bl3
         
-        params0 = np.asarray(params0)
-        # print(params)        
+        params0 = np.asarray(params0)         
 
         model0 = mdl_multi(frqs, params0, aux_list)
 
@@ -1165,8 +1169,7 @@ def server(input, output, session):
             m_cur = model0[tmp_where]
             s_cur = sgnl[tmp_where]
             istart = n_const_par + ifil * n_add_par
-            params0[istart] = np.max(s_cur)/np.max(m_cur)
-            # print('Scale', ifil, params0[istart])
+            params0[istart] = np.max(s_cur)/np.max(m_cur)            
         
         model0 = mdl_multi(frqs, params0, aux_list)
 
@@ -1193,15 +1196,20 @@ def server(input, output, session):
             headers = ['Value', 'Error', 'Parameter']
             col_params = params_fit_multi.get()
             col_errors = uncert_fit_multi.get()
-            col_comments = multi_params_dict.values()[0:n_const_par]
-            col_comments_add = multi_params_dict.values()[n_const_par:]
+            col_headers_list = list(multi_params_dict.values())
+            col_comments = col_headers_list[0:n_const_par]
+            # multi_params_dict.values()[0:n_const_par]
+            col_comments_add = col_headers_list[n_const_par:]            
+            # multi_params_dict.values()[n_const_par:]
             nfil = len(recording.get())
             for ifil in range(nfil):
-                col_comments = col_comments + col_comments_add
+                col_comments = col_comments + col_comments_add            
             col_params = pd.Series(col_params)
             col_errors = pd.Series(col_errors)
             col_comments = pd.Series(col_comments)
-            params_show = pd.DataFrame((col_params, col_errors, col_comments), columns = headers)
+            params_show = pd.DataFrame({headers[0]: col_params, 
+                                        headers[1]: col_errors, 
+                                        headers[2]: col_comments})
             return ui.HTML(params_show.to_html(classes="table table-striped"))
 
     
