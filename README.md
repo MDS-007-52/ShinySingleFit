@@ -9,21 +9,27 @@ pinned: false
 emoji: 📈
 ---
 
-# Lineshape fitting program, rec-by-rec version
+# Lineshape fitting program
 
 This is a universal service for the 
 treatment of the recordings of the single spectral lines' profiles. Leaving beyond 
 the scope some details of the spectrometers and measurements techniques used by 
-the researchers, as well as primary processing the raw data acquired, it is focused 
+the researchers, as well as primary processing of the raw data acquired, it is focused 
 on the analysis of the spectrometer signal-versus-frequency dependencies, which are quite 
 common in a large variety of thermodynamic conditions and frequency intervals.
 
-This is a version for the recording-by-recording processing: each recording is
+This version includes two approaches to the data treatment. The **first** (and the most
+common one) is **recording-by-recording** processing: each recording (i.e. signal-vs-frequency obtained in some certain frequency interval and at some certain
+conditions such as absorber pressure, perturber pressure and temperature) is
 processed separated from other ones, and the result of the processing is line 
 shape parameters (central frequency, half-width, etc) corresponding to each 
-single recording in a batch. This results are further used for the analysis of the 
-pressure- and temperature-dependencies of the line shape parameters and getting 
-normalized to pressure coefficients in case of batch processing of the recordings.
+single recording from a batch and the conditions it was acquired under. These results 
+are further used for the analysis of the pressure- and temperature-dependencies 
+of the line shape parameters and getting normalized to pressure coefficients (broadening 
+coefficient, shifting coefficient etc.) in case of batch processing of the recordings.
+
+The **second** approach is so-called **multispectrum fitting**, or **multifit**. Here all recordings in a batch are analyzed together: parameters of the line shape related to some certain spectral line of a certain molecule have well-known regular analytical dependencies on the molecular densities (i.e. pressures) of the gases in the studied mixture and on the temperature. When we analyze batch of the recordings acquired at various pressures (and sometimes various temperatures) we can use a priory knoweledge of these dependecies and therefore derive normalized collisional parameters (broadening 
+coefficient, shifting coefficient etc.) directly, bypassing the stage of obtaining lihe shape parameters for each recording isolated.
 
 The reason for creating this service was following: a lot of spectroscopy researchers
 face quite common routine, the analysis of the recording batches of some spectral line (or
@@ -36,26 +42,9 @@ analysis of the recorded spectra for the most common situations.
 
 The interface consists of several blocks having certain functionality.
 
-## Parameters selection and guess values
-
-First block is to define, what parameters of the line shape we are going to adjust,
-and which one are fixed to some constant values. On the left side of this block there is
-a checklist with line shape parameters enlisted, checked parameters will be the adjusted ones.
-
-On the right side there are placeholders for input values, which are necessary to model the
-spectrum. Note that 
-- intensity value is given normalized to the absorber concentration in HITRAN units 
-- collisional parameters (such as broadening, shifting, etc) are also given as coefficients,
- i.e. are normalized to pressure
-
-These values are used to calculate guess values for the parameters of the model profile
-(like integral intensity, HWHM, mixing parameter, etc) which fitting procedure starts with, 
-the guess values are calculated in accordance with the absorbing and foreign gases pressure
-and temperature.
-
 ## Data upload
 
-Second block is for uploading your spectra and some additional data we need for the analysis.
+The first block is for uploading your spectra and some additional data we need for the analysis. This block is common for line-by-line and multispectrum fitting routines.
 
 ### Loading spectra
 
@@ -134,12 +123,28 @@ is absent or unnecessary (e.g. temperature is close to the reference value of 29
 and we do not need much precision), you can just switch the control "Use no partition 
 function" to use value of 1. for processing of your data.
 
+## Line-by-line processing section
+
+## Parameters selection and guess values
+
+First block is to define, what parameters of the line shape we are going to adjust,
+and which one are fixed to some constant values. On the left side of this block there is
+a checklist with line shape parameters enlisted, checked parameters will be the adjusted ones.
+
+On the right side there are placeholders for input values, which are necessary to model the
+spectrum. Note that 
+- intensity value is given normalized to the absorber concentration in HITRAN units 
+- collisional parameters (such as broadening, shifting, etc) are also given as coefficients,
+ i.e. are normalized to pressure
+
+These values are used to calculate guess values for the parameters of the model profile
+(like integral intensity, HWHM, mixing parameter, etc) which fitting procedure starts with, 
+the guess values are calculated in accordance with the absorbing and foreign gases pressure
+and temperature.
+
 ## Preview your data
 
-When experimental data, metadata and partition function are loaded, you can preview your
-data to check it, and also see the model profiles with the guess starting values you
-used in the first block. If some necessary information is absent, the message will appear
-saying, what you should add to continue data processing.
+When experimental data, metadata and partition function are loaded, and line parameters for initial guess values are specified, you can preview your data to check it, and also see the model profiles with the guess starting values you used in the first block. If some necessary information is absent, the message will appear saying, what you should add to continue data processing.
 
 ## Fitting model profile to the recordings
 

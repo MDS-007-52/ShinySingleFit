@@ -27,7 +27,29 @@ app_ui = ui.page_fluid(
     #         "if (window.MathJax) MathJax.Hub.Queue(['Typeset', MathJax.Hub]);"
     #     ),
     # ),
-    ui.panel_title("Spectral line shape fit demo version"),
+    ui.panel_title(ui.h1("Spectral line shape fit demo version")),
+    ui.row(ui.h2("Load your data here")),
+
+    # this layout is for uploading "markup" for recordings, i.e. pressures, temperature, recording type etc
+    ui.layout_sidebar(
+                      ui.panel_sidebar(ui.row(
+                                              ui.column(6, ui.input_file("aux_data", "Load recordings info",
+                                              accept=["*.*"], multiple=False)),
+                                              ui.column(6, ui.input_switch('s_header', "Column names in the 1st line"))
+                                              ),
+                      ui.row(
+                             ui.column(6, ui.input_file("partition", "Load partition function",
+                                                        accept=["*.*"], multiple=False)),
+                             ui.column(6, ui.input_switch('s_nopart', "Use no partition function"))
+                                )
+                         ),
+                      ui.panel_main(ui.output_ui("aux_data_show"))
+                      ),
+
+    # an interface for loading recordings
+    ui.row(
+        ui.column(4, ui.input_file("input_files", "Load your spectra", accept=["*.*"], multiple=True)),
+        ui.column(4, ui.input_text("text_comment", "Commented lines", value="//"))),
     ui.row(ui.h2("Line by line fit")),
     # this sidebar layout for marking which parameters to adjust and initial parameters values
     ui.layout_sidebar(
@@ -71,30 +93,9 @@ app_ui = ui.page_fluid(
                       )
     ),
 
-    # this layout is for uploading "markup" for recordings, i.e. pressures, temperature, recording type etc
-
-    ui.layout_sidebar(
-        ui.panel_sidebar(ui.row(
-                                ui.column(6, ui.input_file("aux_data", "Load recordings info",
-                                          accept=["*.*"], multiple=False)),
-                                ui.column(6, ui.input_switch('s_header', "Column names in the 1st line"))
-                                ),
-                         ui.row(
-                                ui.column(6, ui.input_file("partition", "Load partition function",
-                                                           accept=["*.*"], multiple=False)),
-                                ui.column(6, ui.input_switch('s_nopart', "Use no partition function"))
-                                )
-                         ),
-        ui.panel_main(ui.output_ui("aux_data_show"))
-
-    ),
-
-    # an interface for loading recordings
-    ui.row(
-        ui.column(4, ui.input_file("input_files", "Load your spectra", accept=["*.*"], multiple=True)),
-        ui.column(4, ui.input_text("text_comment", "Commented lines", value="//")),
-        ui.column(4, ui.input_action_button("b_preview", "Preview"))
-    ),
+    
+    ui.row(ui.input_action_button("b_preview", "Preview line-by-line")),
+    
     ui.output_plot("preview_spectrum"),
     ui.output_text("preview_status"),
 
@@ -1163,7 +1164,8 @@ def server(input, output, session):
         params0 = np.asarray(params0)         
 
         model0 = mdl_multi(frqs, params0, aux_list)
-
+        # first time we ran the model with scale factors equal to 1.
+        # then we correct them based on the experimental data and calcs with scl=1.
         for ifil in range(nrecs.get()):                        
             tmp_where = aux_list[:, -1] == ifil
             m_cur = model0[tmp_where]

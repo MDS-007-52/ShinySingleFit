@@ -199,12 +199,13 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
     # generally these are: line center, all width, shift and mixing parameters
     # together with their T-dependence power factors
     params_deriv_numeric = [multi_params_indx[x] for x in multi_params_numeric_deriv]
+    # first take the list of params where numeric derivative is necessary (i put it into special tuple in constants.py)
     for ipar in params_deriv_numeric:
-        if jac_flag[ipar] == 1.:
-            params2 = np.copy(params)
-            params2[ipar] = params2[ipar] + dpar
-            model2 = mdl(frq, params2, aux_params=aux_params)
-            jac[:, ipar] = (model2 - model1) / dpar
+        if jac_flag[ipar] == 1.:  # if parameter number ipar is adjustable (jac_flag=1), calc derivative
+            params2 = np.copy(params)  # copy of params
+            params2[ipar] = params2[ipar] + dpar  # add small value to parameter number ipar
+            model2 = mdl(frq, params2, aux_params=aux_params)  # calculate model with changed parameter
+            jac[:, ipar] = (model2 - model1) / dpar  # the derivative by specified parameter
 
     ### Continuum parameters derivatives
     # index of the corresponding parameters are:
