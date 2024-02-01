@@ -122,6 +122,9 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
         id_ns = multi_params_indx["mng0s"]  #  with more ore less intuitive keys
         id_nf = multi_params_indx["mng0f"]  #  more code but also more clarity
         
+        print('N = ', ifil, '!!!', p_s, p_f, tmpr,
+                              params[id_s], params[id_f], params[id_ns], params[id_nf])
+        print(type(tmpr), type(t_ref), type(params[id_nf]))
         tmpG0 = calc_g_simple(p_s, p_f, tmpr,
                               params[id_s], params[id_f], params[id_ns], params[id_nf])
         if rtype in [1, 2, 3]:          
@@ -232,28 +235,39 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
         #jac[tmp_where][:, id_nf] = aux_params[tmp_where][:, 0] * aux_params[tmp_where][:, 1] * cs * (t_ref / aux_params[tmp_where][:, 2])**ncs * np.log(ncs)
     
     ### Derivatives by the individual recording parameters
-    nfil = int(max(aux_params[:, -1]))+1
+    nfil = int(max(aux_params[:, -1]))+1  # number of recordings
 
     ### scaling factor
-    params2 = np.copy(params)
-    # first we make copy of params but with scale equal to 1 (deriv by scale is just)
-    for ifil in range(nfil):
-        i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
-        params2[i_start] = 1.
-        params2[i_start+2] = 0.
-        params2[i_start+3] = 0.
-        params2[i_start+4] = 0.
-        params2[i_start+5] = 0.
-    model2 = mdl_multi(frq, params, aux_params=aux_params)
-    for ifil in range(nfil):
-        i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
-        tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording
-        jac[tmp_where][:, i_start] = model2[tmp_where]
+    if jac_flag[n_const_par] == 1:  # only if scaling factor is adjustable (scaling is 0-th additional parameter)
+        params2 = np.copy(params)  # first we make copy of params but with scale equal to 1 (deriv by scale is just)        
+        for ifil in range(nfil):
+            i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
+            params2[i_start] = 1.
+            params2[i_start+2] = 0.
+            params2[i_start+3] = 0.
+            params2[i_start+4] = 0.
+            params2[i_start+5] = 0.
+        model2 = mdl_multi(frq, params2, aux_params=aux_params)
+        for ifil in range(nfil):        
+            i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
+            tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording
+            jac[tmp_where][:, i_start] = model2[tmp_where]
+
+    ### power factor (where applicable)
+    if jac_flag[n_const_par+1] == 1:  # only if power factor is adjustable (1-th additional parameter)
+        for ifil in range(nfil):
+            rtype = int(aux_params[tmp_where][0, 4])  # record type
+            if rtype in [1, 2]:  # only RAD and VID recs have power factor in model function
+                i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
+                params2 = np.copy(params)
+                params2[i_start+1] += dpar
+                model2 = mdl_multi(frq, params2, aux_params=aux_params)
+                tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording
+                jac[tmp_where][:, i_start+1] = (model2[tmp_where] - model1[tmp_where]) / dpar
 
 
     for ifil in range(nfil):
-        tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording
-        i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
+        tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording        
         p_s = aux_params[tmp_where][0, 0]  # self-pressure
         p_f = aux_params[tmp_where][0, 1]  # foreign-pressure
         tmpr = aux_params[tmp_where][0, 2]  # temperature
@@ -266,4 +280,13 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
             tmpS *= 1.E5
         else:
             tmpS *= clen
+        i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
+        if jac_flag[n_const_par+2] == 1:
+            jac[tmp_where][:, i_start+2] = 1.
+        if jac_flag[n_const_par+3] == 1:
+            jac[tmp_where][:, i_start+3] = frq[tmp_where] - params[1]
+        if jac_flag[n_const_par+4] == 1:
+            jac[tmp_where][:, i_start+4] = (frq[tmp_where] - params[1])**2
+        if jac_flag[n_const_par+5] == 1:
+            jac[tmp_where][:, i_start+5] = (frq[tmp_where] - params[1])**3
     return jac

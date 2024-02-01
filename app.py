@@ -1,4 +1,4 @@
-from shiny.types import FileInfo
+from shiny.types import FileInfo, NavSetArg
 from shiny import *  # App, Inputs, Outputs, Session, render, ui
 # from shinywidgets import *
 # import ipywidgets as widgets
@@ -50,127 +50,135 @@ app_ui = ui.page_fluid(
     ui.row(
         ui.column(4, ui.input_file("input_files", "Load your spectra", accept=["*.*"], multiple=True)),
         ui.column(4, ui.input_text("text_comment", "Commented lines", value="//"))),
-    ui.row(ui.h2("Line by line fit")),
-    # this sidebar layout for marking which parameters to adjust and initial parameters values
-    ui.layout_sidebar(
-        ui.panel_sidebar(ui.h4("Mark adjustable"),
-                         ui.input_checkbox_group("jac_check", "",
-                                                 single_params_dict, selected=list(single_params_dict.keys())),
-                         #ui.input_action_button("b_check", "Check"),
-                         #ui.output_text_verbatim("jac_flag_out", placeholder=True)
-                         ),
-        ui.panel_main(ui.h4("Parameters and coefficients for initial values"),
-                      ui.row(
-                          ui.column(4, ui.input_numeric("I0", "Intensity, 1e-25 cm/mol", value=33.)),
-                          ui.column(4, ui.input_numeric("elow", "Lower level energy, 1/cm", value=0.)),
-                          ui.column(4, ui.input_numeric("molm", "Molecular mass, a.m.u.", value=28.))
-                      ),
-                      ui.row(
-                          ui.column(3, ui.input_numeric("f0", "Line center, MHz", value=115271.202)),
-                          ui.column(3, ui.input_numeric("ngam", "T-dep power", value=0.75)
-                                    ),
-                          ui.row(
-                              ui.column(3, ui.input_numeric("g0", "g0 self, MHz/Torr", value=3.375)),
-                              ui.column(3, ui.input_numeric("g0f", "foreign, MHz/Torr", value=2.750))
-                          ),
-                          ui.row(
-                              ui.column(3, ui.input_numeric("g2", "g2 self, MHz/Torr", value=0.33)),
-                              ui.column(3, ui.input_numeric("g2f", "foreign, MHz/Torr", value=0.28))
-                          ),
-                          ui.row(
-                              ui.column(3, ui.input_numeric("d2", "d2 self, MHz/Torr", value=0.00)),
-                              ui.column(3, ui.input_numeric("d2f", "foreign, MHz/Torr", value=0.00))
-                          ),
-                          ui.row(
-                              ui.column(3, ui.input_numeric("y0", "y self, 1/Torr", value=7.e-6)),
-                              ui.column(3, ui.input_numeric("y0f", "foreign, MHz/Torr", value=7.e-6))
-                          ),
-                          ui.row(
-                              ui.column(3, ui.input_numeric("nu", "N_vc self, MHz/Torr", value=0.15)),
-                              ui.column(3, ui.input_numeric("nuf", "N_vc foreign, MHz/Torr", value=0.15))
-                          ),
-                      )
-                      )
-    ),
 
+    # Tab interface with two tabs for LBL and multifit treatment respectively
+                    
+    ui.navset_tab(
+                  # tab for LBL
+                  ui.nav_panel("Line-by-line treatment", 
+                               # this sidebar layout is for marking which parameters to adjust and initial parameters values
+                               ui.layout_sidebar(
+                                                ui.panel_sidebar(ui.h4("Mark adjustable"),
+                                                                ui.input_checkbox_group("jac_check", "",
+                                                                                        single_params_dict, 
+                                                                                        selected=single_params_adjustable_init),
+                                                                #ui.input_action_button("b_check", "Check"),
+                                                                #ui.output_text_verbatim("jac_flag_out", placeholder=True)
+                                                                ),
+                                                ui.panel_main(ui.h4("Parameters and coefficients for initial values"),
+                                                            ui.row(
+                                                                ui.column(4, ui.input_numeric("I0", "Intensity, 1e-25 cm/mol", value=33.)),
+                                                                ui.column(4, ui.input_numeric("elow", "Lower level energy, 1/cm", value=0.)),
+                                                                ui.column(4, ui.input_numeric("molm", "Molecular mass, a.m.u.", value=28.))
+                                                            ),
+                                                            ui.row(
+                                                                ui.column(3, ui.input_numeric("f0", "Line center, MHz", value=115271.202)),
+                                                                ui.column(3, ui.input_numeric("ngam", "T-dep power", value=0.75)
+                                                                            ),
+                                                                ui.row(
+                                                                    ui.column(3, ui.input_numeric("g0", "g0 self, MHz/Torr", value=3.375)),
+                                                                    ui.column(3, ui.input_numeric("g0f", "foreign, MHz/Torr", value=2.750))
+                                                                ),
+                                                                ui.row(
+                                                                    ui.column(3, ui.input_numeric("g2", "g2 self, MHz/Torr", value=0.33)),
+                                                                    ui.column(3, ui.input_numeric("g2f", "foreign, MHz/Torr", value=0.28))
+                                                                ),
+                                                                ui.row(
+                                                                    ui.column(3, ui.input_numeric("d2", "d2 self, MHz/Torr", value=0.00)),
+                                                                    ui.column(3, ui.input_numeric("d2f", "foreign, MHz/Torr", value=0.00))
+                                                                ),
+                                                                ui.row(
+                                                                    ui.column(3, ui.input_numeric("y0", "y self, 1/Torr", value=7.e-6)),
+                                                                    ui.column(3, ui.input_numeric("y0f", "foreign, MHz/Torr", value=7.e-6))
+                                                                ),
+                                                                ui.row(
+                                                                    ui.column(3, ui.input_numeric("nu", "N_vc self, MHz/Torr", value=0.15)),
+                                                                    ui.column(3, ui.input_numeric("nuf", "N_vc foreign, MHz/Torr", value=0.15))
+                                                                ),
+                                                            )
+                                                            )
+                                                ),
+                                    ui.row(ui.input_action_button("b_preview", "Preview line-by-line")),
     
-    ui.row(ui.input_action_button("b_preview", "Preview line-by-line")),
-    
-    ui.output_plot("preview_spectrum"),
-    ui.output_text("preview_status"),
+                                    ui.output_plot("preview_spectrum"),
+                                    ui.output_text("preview_status"),
 
-    # an interface for fitting the model to the spectra and visualisation of the result
+                                    # an interface for fitting the model to the spectra and visualisation of the result
 
-    ui.input_action_button("b_fit", "Fit model to recordings"),
-    ui.output_text("fit_status"),
-    ui.output_plot("preview_fit"),
-    ui.output_ui("fit_result_table"),
-    ui.row(ui.column(3, ui.input_switch('s_foreign', "Foreign pressure")),
-           ui.column(3, ui.input_switch('s_normself', "Norm. to self P")),
-           ui.column(4, ui.input_numeric('f0_shift', "Unshifted center", value=115271.202))
-           ),
-    ui.row(
-           ui.column(3, ui.input_action_button("b_coefs", "Plot vs pressure")),
-           ui.column(3, ui.download_button("download_params", "Download results")),
-           ui.column(3, ui.download_button("download_resid", "Download residuals")),
-           ui.column(3, ui.input_text("resid_prefix", "Residual file prefix", value="r_"))
-           ),
+                                    ui.input_action_button("b_fit", "Fit model to recordings"),
+                                    ui.output_text("fit_status"),
+                                    ui.output_plot("preview_fit"),
+                                    ui.output_ui("fit_result_table"),
+                                    ui.row(ui.column(3, ui.input_switch('s_foreign', "Foreign pressure")),
+                                        ui.column(3, ui.input_switch('s_normself', "Norm. to self P")),
+                                        ui.column(4, ui.input_numeric('f0_shift', "Unshifted center", value=115271.202))
+                                        ),
+                                    ui.row(
+                                        ui.column(3, ui.input_action_button("b_coefs", "Plot vs pressure")),
+                                        ui.column(3, ui.download_button("download_params", "Download results")),
+                                        ui.column(3, ui.download_button("download_resid", "Download residuals")),
+                                        ui.column(3, ui.input_text("resid_prefix", "Residual file prefix", value="r_"))
+                                        ),
 
-    ui.output_plot("preview_params", height="1200px"),
-
-    ui.row(ui.h2("Multispectrum fit")),
-
-    ui.layout_sidebar(ui.panel_sidebar(ui.h4("Mark adjustable"),
+                                    ui.output_plot("preview_params", height="1200px")
+                               ),
+                   # tab for multifit
+                   ui.nav_panel("Multifit treatment", 
+                                ui.layout_sidebar(ui.panel_sidebar(ui.h4("Mark adjustable"),
                                        ui.input_checkbox_group("jac_check_multi", "",
-                                                               multi_params_dict, selected=list(multi_params_dict.keys()))), 
-                      ui.panel_main(ui.h4("Multifit initial values"),
-                                    ui.row(ui.column(4, ui.input_numeric("mint", "Intensity, 1e-25 cm/mol", value=33.)),
-                                           ui.column(4, ui.input_numeric("melow", "Lower level energy, 1/cm", value=0.)),
-                                           ui.column(4, ui.input_numeric("mmolm", "Molecular mass, a.m.u.", value=28.))
-                                           ),
-                                    ui.row(ui.column(4, ui.input_numeric("mf0", "Central frq", value=115271.202)),
-                                           ui.column(4, ui.input_numeric("mfrab", "Rabi frq", value=0.1))),
-                                    ui.row(ui.column(3, ui.input_numeric("mg0s", "Gamma0 self", value=3.375)),
-                                           ui.column(3, ui.input_numeric("mng0s", "n Gamma0 self", value=0.78)),
-                                           ui.column(3, ui.input_numeric("mg2s", "Gamma2 self", value=0.33)),
-                                           ui.column(3, ui.input_numeric("mng2s", "n Gamma2 self", value=0.78))),
-                                    ui.row(ui.column(3, ui.input_numeric("mg0f", "Gamma0 foreign", value=3.33)),
-                                           ui.column(3, ui.input_numeric("mng0f", "n Gamma0 foreign", value=0.78)),
-                                           ui.column(3, ui.input_numeric("mg2f", "Gamma2 foreign", value=0.33)),
-                                           ui.column(3, ui.input_numeric("mng2f", "n Gamma2 foreign", value=0.78))),
-                                    ui.row(ui.column(3, ui.input_numeric("md0s", "Delta0 self", value=-0.004)),
-                                           ui.column(3, ui.input_numeric("mnd0s", "n Delta0 self", value=0.78)),
-                                           ui.column(3, ui.input_numeric("md2s", "Delta2 self", value=0.00)),
-                                           ui.column(3, ui.input_numeric("mnd2s", "n Delta2 self", value=0.78))),
-                                    ui.row(ui.column(3, ui.input_numeric("md0f", "Delta0 foreign", value=-0.004)),
-                                           ui.column(3, ui.input_numeric("mnd0f", "n Delta0 foreign", value=0.78)),
-                                           ui.column(3, ui.input_numeric("md2f", "Delta2 foreign", value=0.00)),
-                                           ui.column(3, ui.input_numeric("mnd2f", "n Delta2 foreign", value=0.78))),
-                                    ui.row(ui.column(3, ui.input_numeric("my0s", "Mixing self", value=0.000006)),
-                                           ui.column(3, ui.input_numeric("mny0s", "n mixing self", value=0.78)),
-                                           ui.column(3, ui.input_numeric("my0f", "Mixing foreign", value=0.000006)),
-                                           ui.column(3, ui.input_numeric("mny0f", "n mixing foreign", value=0.78))),
-                                    ui.row(ui.column(3, ui.input_numeric("mnuvcs", "Vel.chn. rate self", value=0.15)),
-                                           ui.column(3, ui.input_numeric("mnnuvcs", "n nu_vc self", value=0.78)),
-                                           ui.column(3, ui.input_numeric("mnuvcf", "Vel.chn. rate foreign", value=0.15)),
-                                           ui.column(3, ui.input_numeric("mnnuvcf", "n nu_vc foreign", value=0.78))),
-                                    ui.row(ui.column(3, ui.input_numeric("mcs", "Continuum self", value=5.e-18)),
-                                           ui.column(3, ui.input_numeric("mncs", "n C self", value=0.0)),
-                                           ui.column(3, ui.input_numeric("mcf", "Continuum foreign", value=5.e-18)),
-                                           ui.column(3, ui.input_numeric("mncf", "n C foreign", value=0.0))),
-                                    ui.row(ui.column(6, ui.input_numeric("mpow", "power factor", value=0.)),
-                                           ui.column(6, ui.input_numeric("mscl", "scale factor", value=1.0)),),
-                                    ui.row(ui.column(3, ui.input_numeric("mbl0", "Baseline 0", value=0.0)),
-                                           ui.column(3, ui.input_numeric("mbl1", "Baseline 1", value=0.0)),
-                                           ui.column(3, ui.input_numeric("mbl2", "Baseline 2", value=0.0)),
-                                           ui.column(3, ui.input_numeric("mbl3", "Baseline 3", value=0.0))),
-                                    )
-                      ),
-    ui.input_action_button("b_preview_multifit", "Preview multifit"),
-    ui.output_plot("preview_spectrum_multifit"),
-    ui.input_action_button("b_fit_multifit", "Run multifit"),
-    ui.output_plot("preview_multifit"),
-    ui.output_ui("multifit_result_table")
+                                                               multi_params_dict, 
+                                                               selected=multi_params_adjustable_init)), 
+                                ui.panel_main(ui.h4("Multifit initial values"),
+                                                ui.row(ui.column(4, ui.input_numeric("mint", "Intensity, 1e-25 cm/mol", value=33.)),
+                                                    ui.column(4, ui.input_numeric("melow", "Lower level energy, 1/cm", value=0.)),
+                                                    ui.column(4, ui.input_numeric("mmolm", "Molecular mass, a.m.u.", value=28.))
+                                                    ),
+                                                ui.row(ui.column(4, ui.input_numeric("mf0", "Central frq", value=115271.202)),
+                                                    ui.column(4, ui.input_numeric("mfrab", "Rabi frq", value=0.1))),
+                                                ui.row(ui.column(3, ui.input_numeric("mg0s", "Gamma0 self", value=3.375)),
+                                                    ui.column(3, ui.input_numeric("mng0s", "n Gamma0 self", value=0.78)),
+                                                    ui.column(3, ui.input_numeric("mg2s", "Gamma2 self", value=0.33)),
+                                                    ui.column(3, ui.input_numeric("mng2s", "n Gamma2 self", value=0.78))),
+                                                ui.row(ui.column(3, ui.input_numeric("mg0f", "Gamma0 foreign", value=3.33)),
+                                                    ui.column(3, ui.input_numeric("mng0f", "n Gamma0 foreign", value=0.78)),
+                                                    ui.column(3, ui.input_numeric("mg2f", "Gamma2 foreign", value=0.33)),
+                                                    ui.column(3, ui.input_numeric("mng2f", "n Gamma2 foreign", value=0.78))),
+                                                ui.row(ui.column(3, ui.input_numeric("md0s", "Delta0 self", value=-0.004)),
+                                                    ui.column(3, ui.input_numeric("mnd0s", "n Delta0 self", value=0.78)),
+                                                    ui.column(3, ui.input_numeric("md2s", "Delta2 self", value=0.00)),
+                                                    ui.column(3, ui.input_numeric("mnd2s", "n Delta2 self", value=0.78))),
+                                                ui.row(ui.column(3, ui.input_numeric("md0f", "Delta0 foreign", value=-0.004)),
+                                                    ui.column(3, ui.input_numeric("mnd0f", "n Delta0 foreign", value=0.78)),
+                                                    ui.column(3, ui.input_numeric("md2f", "Delta2 foreign", value=0.00)),
+                                                    ui.column(3, ui.input_numeric("mnd2f", "n Delta2 foreign", value=0.78))),
+                                                ui.row(ui.column(3, ui.input_numeric("my0s", "Mixing self", value=0.000006)),
+                                                    ui.column(3, ui.input_numeric("mny0s", "n mixing self", value=0.78)),
+                                                    ui.column(3, ui.input_numeric("my0f", "Mixing foreign", value=0.000006)),
+                                                    ui.column(3, ui.input_numeric("mny0f", "n mixing foreign", value=0.78))),
+                                                ui.row(ui.column(3, ui.input_numeric("mnuvcs", "Vel.chn. rate self", value=0.15)),
+                                                    ui.column(3, ui.input_numeric("mnnuvcs", "n nu_vc self", value=0.78)),
+                                                    ui.column(3, ui.input_numeric("mnuvcf", "Vel.chn. rate foreign", value=0.15)),
+                                                    ui.column(3, ui.input_numeric("mnnuvcf", "n nu_vc foreign", value=0.78))),
+                                                ui.row(ui.column(3, ui.input_numeric("mcs", "Continuum self", value=5.e-18)),
+                                                    ui.column(3, ui.input_numeric("mncs", "n C self", value=0.0)),
+                                                    ui.column(3, ui.input_numeric("mcf", "Continuum foreign", value=5.e-18)),
+                                                    ui.column(3, ui.input_numeric("mncf", "n C foreign", value=0.0))),
+                                                ui.row(ui.column(6, ui.input_numeric("mpow", "power factor", value=0.)),
+                                                    ui.column(6, ui.input_numeric("mscl", "scale factor", value=1.0)),),
+                                                ui.row(ui.column(3, ui.input_numeric("mbl0", "Baseline 0", value=0.0)),
+                                                    ui.column(3, ui.input_numeric("mbl1", "Baseline 1", value=0.0)),
+                                                    ui.column(3, ui.input_numeric("mbl2", "Baseline 2", value=0.0)),
+                                                    ui.column(3, ui.input_numeric("mbl3", "Baseline 3", value=0.0))),
+                                                )
+                                ),
+                ui.input_action_button("b_preview_multifit", "Preview multifit"),
+                ui.output_plot("preview_spectrum_multifit"),
+                ui.input_action_button("b_fit_multifit", "Run multifit"),
+                ui.output_plot("preview_multifit"),
+                ui.output_ui("multifit_result_table")
+                               ),
+   
+                )
 )
 
 
@@ -551,7 +559,7 @@ def server(input, output, session):
 
     
     # Download the results of the line-by-line fit (lineshape parameters)
-    @session.download(filename='fit_params.txt')
+    @render.download(filename='fit_params.txt')
     def download_params():
         if f_fit.get():
             headers = list(single_params_dict.values())
@@ -584,7 +592,7 @@ def server(input, output, session):
 
 
     # Download the results of the line-by-line fit (residuals)
-    @session.download(filename='residuals.zip')
+    @render.download(filename='residuals.zip')
     def download_resid():
         if f_fit.get():
             with io.BytesIO() as buf:
@@ -1171,21 +1179,31 @@ def server(input, output, session):
             m_cur = model0[tmp_where]
             s_cur = sgnl[tmp_where]
             istart = n_const_par + ifil * n_add_par
-            params0[istart] = np.max(s_cur)/np.max(m_cur)            
-        
-        model0 = mdl_multi(frqs, params0, aux_list)
+            params0[istart] = np.max(s_cur)/np.max(m_cur)  # here the scale is fixed to the proper value
+
+        jac_flag_multi = [int(elem in input.jac_check_multi()) for elem in multi_params_dict]
+        print(jac_flag_multi)              
+
+        params1 = fit_params(frqs, sgnl, params0, mdl_multi, mdljac_multi, jac_flag_multi, 
+                             1.e-4, 1.e-12, 1.e4, 10, aux_params=aux_list)
+        uncert_1 = fit_uncertainties(frqs, sgnl,
+                                     params1, mdl_multi, mdljac_multi, jac_flag_multi,
+                                         aux_params=aux_list)
+
+
+        model1 = mdl_multi(frqs, params1, aux_list)
 
         tmp_resid_multi = []
         for ifil in range(nrecs.get()):
             tmp_where = aux_list[:, -1] == ifil
-            m_cur = model0[tmp_where]
+            m_cur = model1[tmp_where]
             s_cur = sgnl[tmp_where]
             tmp_resid = s_cur - m_cur
             tmp_resid_multi.append(tmp_resid)
 
         residuals_multi.set(tmp_resid_multi)
-        params_fit_multi.set(params0)
-        uncert_fit_multi.set(tmp_err)
+        params_fit_multi.set(params1)
+        uncert_fit_multi.set(uncert_1)
 
         f_fit_multi.set(True)
 

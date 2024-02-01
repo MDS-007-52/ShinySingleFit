@@ -33,6 +33,34 @@ single_params_dict = {"frq": "Central freq",
                       "bl2": "Baseline 2",
                       "bl3": "Baseline 3"}
 
+single_params_adjustable_init = ["frq",
+                                 "int",
+                                 "g0",
+                                 "g2",
+                                 "y",
+                                 "bl0",
+                                 "bl1",
+                                 "bl2"]
+
+single_params_adjustable_cav = ["frq",
+                                 "int",
+                                 "g0",
+                                 "g2",
+                                 "y",                                 
+                                 "bl2"]
+
+# preset of the adjustable parameters for LBL fit corresp. to RAD (and VID) recordings
+# no mixing, no SD-shift, no Opt.Frq.
+single_params_adjustable_rad = ["frq",
+                                 "int",
+                                 "g0",
+                                 "g2",
+                                 "pow",                                 
+                                 "bl0",
+                                 "bl1",
+                                 "bl2"]
+
+
 multi_params_dict = {"mint": "Intensity",
                      "mf0": "Central freq",                      
                      "mg0s": "Gamma 0 self",
@@ -135,3 +163,21 @@ multi_params_numeric_deriv = ("mf0",
                               "mny0f",
                               "mnnuvcs",
                               "mnnuvcf")
+
+multi_params_adjustable_init = ["mf0" ,
+                                "mg0s" ,
+                                "mg2s" ,
+                                "mg0f" ,
+                                "mg2f" ,
+                                "md0s" ,
+                                "md0f" ,
+                                "my0s" ,
+                                "my0f" ,
+                                "mcs"  ,
+                                "mcf"  ,
+                                "mfrab" ,
+                                "mscl" ,
+                                "mbl0" ,
+                                "mbl1" ,
+                                "mbl2" ,
+                                "mbl3"]
