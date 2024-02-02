@@ -1,5 +1,6 @@
 import numpy as np
 import scipy
+from constants import *
 
 
 def fit_params(x_in: np.ndarray,
@@ -51,54 +52,61 @@ def fit_params(x_in: np.ndarray,
             jac = jacobi(x_in, jac_flag, cur_params)
         else:
             jac = jacobi(x_in, jac_flag, cur_params, aux_params)
-        # print('FIT step = ', k, 'substep = ', i, ', jacobi done')
+        if f_verbose_fit:
+            print('FIT step = ', k, 'substep = ', i, ', jacobi done')
         f_step = False  # flag of parameters step is done
         while not f_step:
             # Levenberg-Markquardt method to calc the step of the params to less residual
             am1 = ap * np.eye(len(params0)) + np.matmul(jac.T, jac)
             resid1 = y_in - model1
             av = np.matmul(jac.T, resid1)
-            # am2 = np.linalg.inv(am1)
-            am2 = scipy.linalg.inv(am1)  # np.linalg.inv(am1)
+            am2 = scipy.linalg.inv(am1)  # np.linalg.inv(am1)            
             steparams = np.matmul(am2, av)  # step of parameters due to Leven-Mark method
             tmp_params = steparams + cur_params
-            # print('Params step:')
-            # print(steparams)
-            # print('Next params:')
-            # print(tmp_params)
-            # print('FIT step = ', k, 'substep = ', i, ', calculating new residual')
+            if f_verbose_fit:
+                # print('Params step:')
+                # print(steparams)
+                # print('Next params:')
+                # print(tmp_params)            
+                print('FIT step = ', k, 'substep = ', i, ', calculating new residual')
             if aux_params is None:
                 model1 = modelf(x_in, tmp_params)  # model calc for new parameters
             else:
                 model1 = modelf(x_in, tmp_params, aux_params)  # model calc for new parameters
             rms2 = np.sqrt(np.sum((y_in - model1) ** 2))
-            # print('old rms = ', rms1, '   new rms = ', rms2, '   lambda = ', ap)
-            # print('relative difference = ', abs((rms2 - rms1) / rms1))
+            if f_verbose_fit:
+                print('old rms = ', rms1, '   new rms = ', rms2, '   lambda = ', ap)
+                print('relative difference = ', abs((rms2 - rms1) / rms1))
             if rms2 < rms1:  # case when new residual is smaller
                 if abs((rms2 - rms1) / rms1) > fit_precision:  # change of rms is great enough
-                    # print('next rms is smaller, STEP FORWARD')
+                    if f_verbose_fit:
+                        print('next rms is smaller, STEP FORWARD')
                     f_step = True
                     cur_params += steparams
                     rms1 = rms2
                 elif abs((rms2 - rms1) / rms1) <= fit_precision:  # change of rms is smaller then threshold
-                    # print('next rms is smaller, but change is less than threshold, fit STOP')
+                    if f_verbose_fit:
+                        print('next rms is smaller, but change is less than threshold, fit STOP')
                     cur_params += steparams
                     rms1 = rms2
                     f_step = True
                     f_end = True
             elif rms2 >= rms1:
                 if abs((rms2 - rms1) / rms1) < fit_precision:
-                    # print('next rms is greater, but change is less than threshold, fit STOP')
+                    if f_verbose_fit:
+                        print('next rms is greater, but change is less than threshold, fit STOP')
                     f_step = True
                     f_end = True
                 elif abs((rms2 - rms1) / rms1) > fit_precision:
                     if i <= iter_limit:
                         ap = ap * lmstep
-                        # print('next rms is greater, change LAMBDA and repeat')
+                        if f_verbose_fit:
+                            print('next rms is greater, change LAMBDA and repeat')
                     if i > iter_limit:
                         f_end = True
                         f_step = True
-                        # print('can"t converge to a solution, BREAK')
+                        if f_verbose_fit:
+                            print('can"t converge to a solution, BREAK')
             i += 1
         k += 1
     return cur_params
@@ -129,10 +137,12 @@ def fit_uncertainties(x_in: np.ndarray,
     else:
         model1 = modelf(x_in, params0, aux_params)  # calculated absorption at initial parameters
 
+    jac_flag_local = jac_flag[0:n_const_par+n_add_par]
+
     if aux_params is None:
-        jac = jacobi(x_in, jac_flag, params0)
+        jac = jacobi(x_in, jac_flag_local, params0)
     else:
-        jac = jacobi(x_in, jac_flag, params0, aux_params)
+        jac = jacobi(x_in, jac_flag_local, params0, aux_params)
 
     rms = np.sqrt(np.sum((y_in - model1) ** 2) / (len(x_in) - 1))
 
@@ -142,9 +152,11 @@ def fit_uncertainties(x_in: np.ndarray,
         if am1[iam, iam] == 0:
             am1[iam, iam] = 1.E-6
 
-    am1 = np.linalg.inv(am1)
+    am1 = scipy.linalg.inv(am1)
 
     params_err = np.empty_like(params0)
+
+    # print(params0.shape, am1.shape, len(jac_flag_local))
 
     for ipar in range(len(params_err)):
         params_err[ipar] = rms * np.sqrt(am1[ipar, ipar]) * jac_flag[ipar]

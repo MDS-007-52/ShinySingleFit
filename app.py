@@ -995,9 +995,11 @@ def server(input, output, session):
         params[multi_params_indx['mncf']] = input.mncf()
         
         for ifil in range(len(f)):
+            #tmp_where = aux_list[:, -1] == ifil
             istart = n_const_par + ifil * n_add_par
             params[istart] = 1.  # integral intensity correction
             params[istart+1] = 0.  # radiation source power vs frequency correction
+            
             params[istart+2] = 0.  # bl0
             params[istart+3] = 0.  # bl1
             params[istart+4] = 0.  # bl2
@@ -1014,6 +1016,13 @@ def server(input, output, session):
             s_cur = sgnl[tmp_where]
             istart = n_const_par + ifil * n_add_par
             params[istart] = np.max(s_cur)/np.max(m_cur)
+            tmp_bl0 = 0.
+            npt_bl = 5
+            for i_bl in range (npt_bl):
+                tmp_bl0 += s_cur[i_bl] + s_cur[-1 - i_bl]
+            tmp_bl0 *= 1./(2. * npt_bl)
+            print(tmp_bl0)
+            params[istart+2] = tmp_bl0  # bl0
             # print('Scale', ifil, params[istart])
         
         model0 = mdl_multi(frqs, params, aux_list)
@@ -1162,8 +1171,9 @@ def server(input, output, session):
         
         for ifil in range(nrecs.get()):
             istart = n_const_par + ifil * n_add_par
+            
             params0[istart] = 1.  # integral intensity correction
-            params0[istart+1] = 0.  # radiation source power vs frequency correction
+            params0[istart+1] = 0.  # radiation source power vs frequency correction            
             params0[istart+2] = 0.  # bl0
             params0[istart+3] = 0.  # bl1
             params0[istart+4] = 0.  # bl2
@@ -1180,14 +1190,25 @@ def server(input, output, session):
             s_cur = sgnl[tmp_where]
             istart = n_const_par + ifil * n_add_par
             params0[istart] = np.max(s_cur)/np.max(m_cur)  # here the scale is fixed to the proper value
+            tmp_bl0 = 0.
+            npt_bl = 5
+            for i_bl in range (npt_bl):
+                tmp_bl0 += s_cur[i_bl] + s_cur[-1 - i_bl]
+            tmp_bl0 *= 1./(2. * npt_bl)
+            params0[istart+2] = tmp_bl0  # bl0
 
         jac_flag_multi = [int(elem in input.jac_check_multi()) for elem in multi_params_dict]
+
+        jac_flag_part1 = jac_flag_multi[0:n_const_par]
+        jac_flag_part2 = jac_flag_multi[n_const_par:]
+        jac_flag_multi_uncert = jac_flag_part1 + nrecs.get() * jac_flag_part2
         print(jac_flag_multi)              
+        print(jac_flag_multi_uncert)
 
         params1 = fit_params(frqs, sgnl, params0, mdl_multi, mdljac_multi, jac_flag_multi, 
                              1.e-4, 1.e-12, 1.e4, 10, aux_params=aux_list)
         uncert_1 = fit_uncertainties(frqs, sgnl,
-                                     params1, mdl_multi, mdljac_multi, jac_flag_multi,
+                                     params1, mdl_multi, mdljac_multi, jac_flag_multi_uncert,
                                          aux_params=aux_list)
 
 

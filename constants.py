@@ -20,6 +20,8 @@ nauxpar = 5  # number of auxilary params
 n_const_par = 31  # number of common parameters for all recordings in the multifit
 n_add_par = 6  # number of individual parameters for each recording in multifit
 
+f_verbose_fit = False
+
 single_params_dict = {"frq": "Central freq",
                       "int": "Intensity",
                       "g0": "Gamma 0",

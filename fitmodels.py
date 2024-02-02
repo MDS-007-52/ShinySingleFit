@@ -122,9 +122,9 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
         id_ns = multi_params_indx["mng0s"]  #  with more ore less intuitive keys
         id_nf = multi_params_indx["mng0f"]  #  more code but also more clarity
         
-        print('N = ', ifil, '!!!', p_s, p_f, tmpr,
-                              params[id_s], params[id_f], params[id_ns], params[id_nf])
-        print(type(tmpr), type(t_ref), type(params[id_nf]))
+        # print('N = ', ifil, '!!!', p_s, p_f, tmpr, params[id_s], params[id_f], params[id_ns], params[id_nf])
+        # print(type(tmpr), type(t_ref), type(params[id_nf]))
+        
         tmpG0 = calc_g_simple(p_s, p_f, tmpr,
                               params[id_s], params[id_f], params[id_ns], params[id_nf])
         if rtype in [1, 2, 3]:          
@@ -195,20 +195,22 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
 
 
 def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
-    jac = np.zeros((len(params), len(frq)))
-    model1 = mdl(frq, params, aux_params=aux_params)
+    # print('Control output')
+    # print(params[n_const_par::n_add_par])
+    jac = np.zeros((len(frq), len(params)))    
+    model1 = mdl_multi(frq, params, aux_params=aux_params)    
     dpar = 1.E-6
     # list of params requiring numeric derivative
     # generally these are: line center, all width, shift and mixing parameters
     # together with their T-dependence power factors
-    params_deriv_numeric = [multi_params_indx[x] for x in multi_params_numeric_deriv]
+    params_deriv_numeric = [multi_params_indx[x] for x in multi_params_numeric_deriv]    
     # first take the list of params where numeric derivative is necessary (i put it into special tuple in constants.py)
     for ipar in params_deriv_numeric:
         if jac_flag[ipar] == 1.:  # if parameter number ipar is adjustable (jac_flag=1), calc derivative
             params2 = np.copy(params)  # copy of params
             params2[ipar] = params2[ipar] + dpar  # add small value to parameter number ipar
-            model2 = mdl(frq, params2, aux_params=aux_params)  # calculate model with changed parameter
-            jac[:, ipar] = (model2 - model1) / dpar  # the derivative by specified parameter
+            model2 = mdl_multi(frq, params2, aux_params=aux_params)  # calculate model with changed parameter            
+            jac[:, ipar] = (model2 - model1) / dpar  # the derivative by specified parameter            
 
     ### Continuum parameters derivatives
     # index of the corresponding parameters are:
@@ -250,8 +252,9 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
         model2 = mdl_multi(frq, params2, aux_params=aux_params)
         for ifil in range(nfil):        
             i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
-            tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording
-            jac[tmp_where][:, i_start] = model2[tmp_where]
+            tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording                        
+            jac[tmp_where, i_start] = model2[tmp_where]
+            # print(jac[tmp_where][:, i_start])
 
     ### power factor (where applicable)
     if jac_flag[n_const_par+1] == 1:  # only if power factor is adjustable (1-th additional parameter)
@@ -263,30 +266,31 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
                 params2[i_start+1] += dpar
                 model2 = mdl_multi(frq, params2, aux_params=aux_params)
                 tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording
-                jac[tmp_where][:, i_start+1] = (model2[tmp_where] - model1[tmp_where]) / dpar
+                jac[tmp_where, i_start+1] = (model2[tmp_where] - model1[tmp_where]) / dpar
+                #print(jac[tmp_where][:, i_start+1])
 
 
     for ifil in range(nfil):
-        tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording        
-        p_s = aux_params[tmp_where][0, 0]  # self-pressure
-        p_f = aux_params[tmp_where][0, 1]  # foreign-pressure
-        tmpr = aux_params[tmp_where][0, 2]  # temperature
-        dev = aux_params[tmp_where][0, 3]  # temperature
-        rtype = int(aux_params[tmp_where][0, 4])  # record type
-        clen = aux_params[tmp_where][0, 5]  # temperature        
-        gdop = aux_params[tmp_where][0, -3] # dopler width
-        tmpS = aux_params[tmp_where][0, -2]  # line strength
-        if rtype == 0:
-            tmpS *= 1.E5
-        else:
-            tmpS *= clen
+        # tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording        
+        # p_s = aux_params[tmp_where][0, 0]  # self-pressure
+        # p_f = aux_params[tmp_where][0, 1]  # foreign-pressure
+        # tmpr = aux_params[tmp_where][0, 2]  # temperature
+        # dev = aux_params[tmp_where][0, 3]  # temperature
+        # rtype = int(aux_params[tmp_where][0, 4])  # record type
+        # clen = aux_params[tmp_where][0, 5]  # temperature        
+        # gdop = aux_params[tmp_where][0, -3] # dopler width
+        # tmpS = aux_params[tmp_where][0, -2]  # line strength
+        # if rtype == 0:
+        #     tmpS *= 1.E5
+        # else:
+        #     tmpS *= clen
         i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
         if jac_flag[n_const_par+2] == 1:
-            jac[tmp_where][:, i_start+2] = 1.
-        if jac_flag[n_const_par+3] == 1:
-            jac[tmp_where][:, i_start+3] = frq[tmp_where] - params[1]
+            jac[tmp_where, i_start+2] = 1.            
+        if jac_flag[n_const_par+3] == 1:            
+            jac[tmp_where, i_start+3] = frq[tmp_where] - params[1]
         if jac_flag[n_const_par+4] == 1:
-            jac[tmp_where][:, i_start+4] = (frq[tmp_where] - params[1])**2
+            jac[tmp_where, i_start+4] = (frq[tmp_where] - params[1])**2
         if jac_flag[n_const_par+5] == 1:
-            jac[tmp_where][:, i_start+5] = (frq[tmp_where] - params[1])**3
+            jac[tmp_where, i_start+5] = (frq[tmp_where] - params[1])**3
     return jac
