@@ -60,14 +60,17 @@ def fit_params(x_in: np.ndarray,
             am1 = ap * np.eye(len(params0)) + np.matmul(jac.T, jac)
             resid1 = y_in - model1
             av = np.matmul(jac.T, resid1)
-            am2 = scipy.linalg.inv(am1)  # np.linalg.inv(am1)            
+            try:
+                am2 = scipy.linalg.inv(am1)  # matrix inversion
+            except:
+                am2 = scipy.linalg.pinv(am1)  # if matrix is badly conditioned, alternative method is used
             steparams = np.matmul(am2, av)  # step of parameters due to Leven-Mark method
             tmp_params = steparams + cur_params
             if f_verbose_fit:
                 # print('Params step:')
                 # print(steparams)
-                # print('Next params:')
-                # print(tmp_params)            
+                print('Next params:')
+                print(tmp_params)
                 print('FIT step = ', k, 'substep = ', i, ', calculating new residual')
             if aux_params is None:
                 model1 = modelf(x_in, tmp_params)  # model calc for new parameters
@@ -107,6 +110,12 @@ def fit_params(x_in: np.ndarray,
                         f_step = True
                         if f_verbose_fit:
                             print('can"t converge to a solution, BREAK')
+            elif rms2 is None:
+                if f_verbose_fit:
+                    print('Something went wrong')
+                f_end = True
+                f_step = True
+
             i += 1
         k += 1
     return cur_params
@@ -150,15 +159,18 @@ def fit_uncertainties(x_in: np.ndarray,
 
     for iam in range(len(params0)):
         if am1[iam, iam] == 0:
-            am1[iam, iam] = 1.E-6
+            am1[iam, iam] = 1.E-0
 
-    am1 = scipy.linalg.inv(am1)
+    try: 
+        am2 = scipy.linalg.inv(am1)
+    except:
+        am2 = scipy.linalg.pinv(am1)
 
     params_err = np.empty_like(params0)
 
     # print(params0.shape, am1.shape, len(jac_flag_local))
 
     for ipar in range(len(params_err)):
-        params_err[ipar] = rms * np.sqrt(am1[ipar, ipar]) * jac_flag[ipar]
+        params_err[ipar] = rms * np.sqrt(am2[ipar, ipar]) * jac_flag[ipar]
 
     return params_err

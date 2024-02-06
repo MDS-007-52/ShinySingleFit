@@ -8,8 +8,16 @@ def dif_htp(sg, sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, strength_in, dev, 
 
     sg_m = sg[:] - dev
     sg_p = sg[:] + dev
-    absor_minus, _ = htp(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, 0.0, sg_m, Ylm=0.0)
-    absor_plus, _ = htp(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, 0.0, sg_p, Ylm=0.0)
+    try:
+        absor_minus, _ = htp(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, 0.0, sg_m, Ylm=0.0)
+    except:
+        print('Something wrong, -')
+        print(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC)
+    try:
+        absor_plus, _ = htp(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC, 0.0, sg_p, Ylm=0.0)
+    except:
+        print('Something wrong, +')
+        print(sg0, GamD, Gam0, Gam2, Shift0, Shift2, anuVC)
     absor_minus[:] *= sg_m[:]**2/sg0**2
     absor_plus[:] *= sg_p[:]**2/sg0**2
 
