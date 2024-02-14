@@ -226,9 +226,9 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
     ncf = params[id_nf]
 
     if jac_flag[id_s] == 1:
-        jac[tmp_where][:, id_s] = aux_params[tmp_where][:, 0]**2 * frq[tmp_where][:]**2 * (t_ref / aux_params[tmp_where][:, 2])**ncs
+        jac[tmp_where, id_s] = aux_params[tmp_where, 0]**2 * frq[tmp_where]**2 * (t_ref / aux_params[tmp_where][:, 2])**ncs
     if jac_flag[id_f] == 1:
-        jac[tmp_where][:, id_f] = aux_params[tmp_where][:, 0] * aux_params[tmp_where][:, 1] * frq[tmp_where][:] * (t_ref / aux_params[tmp_where][:, 2])**ncf
+        jac[tmp_where, id_f] = aux_params[tmp_where, 0] * aux_params[tmp_where, 1] * frq[tmp_where]**2 * (t_ref / aux_params[tmp_where][:, 2])**ncf
     if jac_flag[id_ns] == 1:
         pass  # currently let's leave T-dependence of continuum as read-only parameter with no adjustment
         #jac[tmp_where][:, id_ns] = aux_params[tmp_where][:, 0]**2 * cs * (t_ref / aux_params[tmp_where][:, 2])**ncs * np.log(ncs)
@@ -269,6 +269,15 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
                 jac[tmp_where, i_start+1] = (model2[tmp_where] - model1[tmp_where]) / dpar
                 #print(jac[tmp_where][:, i_start+1])
 
+    deriv_bl0 = np.zeros_like(frq)
+    deriv_bl1 = np.zeros_like(frq)
+    deriv_bl2 = np.zeros_like(frq)
+    deriv_bl3 = np.zeros_like(frq)
+
+    # deriv_bl0[:] = 1.
+    # deriv_bl1[:] = frq[:] - params[1]
+    deriv_bl2[:] = (frq[:] - params[1])**2
+    deriv_bl3[:] = (frq[:] - params[1])**3
 
     for ifil in range(nfil):
         # tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording        
@@ -276,7 +285,7 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
         # p_f = aux_params[tmp_where][0, 1]  # foreign-pressure
         # tmpr = aux_params[tmp_where][0, 2]  # temperature
         # dev = aux_params[tmp_where][0, 3]  # temperature
-        # rtype = int(aux_params[tmp_where][0, 4])  # record type
+        rtype = int(aux_params[tmp_where][0, 4])  # record type
         # clen = aux_params[tmp_where][0, 5]  # temperature        
         # gdop = aux_params[tmp_where][0, -3] # dopler width
         # tmpS = aux_params[tmp_where][0, -2]  # line strength
@@ -284,13 +293,14 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
         #     tmpS *= 1.E5
         # else:
         #     tmpS *= clen
-        i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
-        if jac_flag[n_const_par+2] == 1:
-            jac[tmp_where, i_start+2] = 1.            
-        if jac_flag[n_const_par+3] == 1:            
-            jac[tmp_where, i_start+3] = frq[tmp_where] - params[1]
-        if jac_flag[n_const_par+4] == 1:
-            jac[tmp_where, i_start+4] = (frq[tmp_where] - params[1])**2
-        if jac_flag[n_const_par+5] == 1:
-            jac[tmp_where, i_start+5] = (frq[tmp_where] - params[1])**3
+        if rtype != 0:
+            i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
+            if jac_flag[n_const_par+2] == 1:
+                jac[tmp_where, i_start+2] = 1.            
+            if jac_flag[n_const_par+3] == 1:            
+                jac[tmp_where, i_start+3] = frq[tmp_where] - params[1]
+            if jac_flag[n_const_par+4] == 1:
+                jac[tmp_where, i_start+4] = deriv_bl2[tmp_where]  # (frq[tmp_where] - params[1])**2
+            if jac_flag[n_const_par+5] == 1:
+                jac[tmp_where, i_start+5] = deriv_bl3[tmp_where]  # (frq[tmp_where] - params[1])**3
     return jac

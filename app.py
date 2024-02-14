@@ -896,7 +896,7 @@ def server(input, output, session):
             ax = plt.text(0.4, 0.4, "Please upload your partition data")
             return fig
         # print('Preview start')
-        aux_df.set(aux_df.get().reindex(names.get()))
+        aux_df.set(aux_df.get().reindex(names.get()))  # set order of the lines in metadata in accordance with the filenames order
         # read the list of the loaded filenames etc
         f: list[FileInfo] = input.input_files()
         
@@ -908,8 +908,7 @@ def server(input, output, session):
         rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VID)
 
-        tmp_recs = recording.get()
-        tmp_scales = np.ones(len(f))
+        tmp_recs = [np.copy(rec) for rec in recording.get()]        
 
         for ifil in range(len(f)):            
             rec_cur = tmp_recs[ifil]  # recording
@@ -1052,10 +1051,12 @@ def server(input, output, session):
             for ifil in range(nrecs.get()):
                 f_cur = recording.get()[ifil][:, 0]
                 r_cur = residuals_multi.get()[ifil]
-                ax[ifil].plot(f_cur - params_fit_multi.get()[1], r_cur, 'b-')
+                frq0 = params_fit_multi.get()[1]
+                frq0 = 0.
+                ax[ifil].plot(f_cur - frq0, r_cur, 'b-')
                 ax[ifil].hlines(y=0., 
-                                xmin=min(f_cur - params_fit_multi.get()[1]),
-                                xmax=max(f_cur - params_fit_multi.get()[1]),
+                                xmin=min(f_cur - frq0),
+                                xmax=max(f_cur - frq0),
                                 linestyles='dashed', colors='grey')
         else:
             fig, ax = plt.subplots()
@@ -1079,7 +1080,7 @@ def server(input, output, session):
         rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VID)
 
-        tmp_recs = recording.get()
+        tmp_recs = [np.copy(rec) for rec in recording.get()]
         
         # prepare data for multifit processing
         for ifil in range(len(f)):            
@@ -1185,17 +1186,18 @@ def server(input, output, session):
         # first time we ran the model with scale factors equal to 1.
         # then we correct them based on the experimental data and calcs with scl=1.
         for ifil in range(nrecs.get()):                        
-            tmp_where = aux_list[:, -1] == ifil
+            tmp_where = aux_list[:, -1] == ifil            
             m_cur = model0[tmp_where]
             s_cur = sgnl[tmp_where]
             istart = n_const_par + ifil * n_add_par
             params0[istart] = np.max(s_cur)/np.max(m_cur)  # here the scale is fixed to the proper value
             tmp_bl0 = 0.
             npt_bl = 5
-            for i_bl in range (npt_bl):
-                tmp_bl0 += s_cur[i_bl] + s_cur[-1 - i_bl]
-            tmp_bl0 *= 1./(2. * npt_bl)
-            params0[istart+2] = tmp_bl0  # bl0
+            if rtype[ifil] != 0:
+                for i_bl in range (npt_bl):
+                    tmp_bl0 += s_cur[i_bl] + s_cur[-1 - i_bl]
+                tmp_bl0 *= 1./(2. * npt_bl)
+                params0[istart+2] = tmp_bl0  # bl0
 
         jac_flag_multi = [int(elem in input.jac_check_multi()) for elem in multi_params_dict]
 
