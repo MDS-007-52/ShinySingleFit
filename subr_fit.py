@@ -159,7 +159,7 @@ def fit_uncertainties(x_in: np.ndarray,
 
     for iam in range(len(params0)):
         if am1[iam, iam] == 0:
-            am1[iam, iam] = 1.E-0
+            am1[iam, iam] = 0.E-0
 
     try: 
         am2 = scipy.linalg.inv(am1)
@@ -171,6 +171,10 @@ def fit_uncertainties(x_in: np.ndarray,
     # print(params0.shape, am1.shape, len(jac_flag_local))
 
     for ipar in range(len(params_err)):
-        params_err[ipar] = rms * np.sqrt(am2[ipar, ipar]) * jac_flag[ipar]
+        try:
+            print(ipar, am2[ipar, ipar])
+            params_err[ipar] = rms * np.sqrt(am2[ipar, ipar]) * jac_flag[ipar]
+        except:            
+            params_err[ipar, ipar] = -1.
 
     return params_err

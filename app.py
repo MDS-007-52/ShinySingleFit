@@ -1035,6 +1035,7 @@ def server(input, output, session):
             m_cur = model0[tmp_where]
             ax[ifil].plot(f_cur - input.mf0(), s_cur, 'ro')
             ax[ifil].plot(f_cur - input.mf0(), m_cur, 'b-')
+            ax[ifil].plot(f_cur - input.mf0(), (s_cur - m_cur)*10., 'k-')
             # ax[ifil].set_xlabel('Frequency, GHz')
             ax[ifil].text(0.2, 0.8, 'P_self = '+str(p_self[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
             ax[ifil].text(0.2, 0.7, 'P_foreign = '+str(p_for[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
