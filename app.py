@@ -173,8 +173,13 @@ app_ui = ui.page_fluid(
                                 ),
                 ui.input_action_button("b_preview_multifit", "Preview multifit"),
                 ui.output_plot("preview_spectrum_multifit"),
-                ui.input_action_button("b_fit_multifit", "Run multifit"),
+                ui.row(ui.column(4, ui.input_switch('s_verbose', "Verbose fit")),
+                       ui.column(4, ui.input_action_button("b_fit_multifit", "Run multifit"))),
                 ui.output_plot("preview_multifit"),
+                ui.row(ui.column(3, ui.download_button("download_params_multifit", "Download results")),
+                       ui.column(3, ui.download_button("download_resid_multifit", "Download residuals")),
+                       ui.column(3, ui.input_text("resid_prefix_multifit", "Residual file prefix", value="rm_"))
+                       ),
                 ui.output_ui("multifit_result_table")
                                ),
    
@@ -1256,7 +1261,27 @@ def server(input, output, session):
                                         headers[2]: col_comments})
             return ui.HTML(params_show.to_html(classes="table table-striped"))
 
-    
+    # Download the results of the multifit (lineshape parameters)
+    @render.download(filename='fit_params_multi.txt')
+    def download_params_multifit():
+        if f_fit_multi.get():
+            col_headers_list = list(multi_params_dict.values())
+            col_comments = col_headers_list[0:n_const_par]
+            col_comments_add = col_headers_list[n_const_par:]
+            nfil = len(recording.get())
+            for ifil in range(nfil):
+                col_comments = col_comments + col_comments_add
+            headers = ('# Parameter', 'Uncertainty', 'Description')
+            headers = [elem.replace(' ', '_') for elem in headers]
+            yield '   '.join([('%15s' % headers[0]).ljust(15), 
+                              ('%15s' % headers[1]).ljust(15), 
+                              ('%s' % headers[2]).ljust(15)] + ['\n'])  # this puts line of headers into the output file
+            params_array = np.asarray(params_fit_multi.get())
+            uncert_array = np.asarray(uncert_fit_multi.get())
+            for i in range(params_array.shape[0]):                                
+                yield '   '.join([('%15.10g' % params_array[i]).ljust(15), 
+                                  ('%15.10g' % uncert_array[i]).ljust(15),
+                                  ('%s' % col_comments[i]).ljust(15)] + ['\n'])  # this puts lines with parameters, errors and descrpition
     # @render_widget
     # def spectra_info():
     #     if input.input_files is None:

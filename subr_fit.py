@@ -1,5 +1,6 @@
 import numpy as np
 import scipy
+import math
 from constants import *
 
 
@@ -13,7 +14,8 @@ def fit_params(x_in: np.ndarray,
                lmstart: float,
                lmstep: float,
                iter_limit: int,
-               aux_params: np.ndarray = None) -> np.ndarray:
+               aux_params: np.ndarray = None,
+               f_verbose_fit: bool = None) -> np.ndarray:
     """
     This function fits params of the specially constructed model function modelf to make it fit the best (with minimum
     standard deviation of the difference) to the experimental data (x_in, y_in)
@@ -72,6 +74,11 @@ def fit_params(x_in: np.ndarray,
                 print('Next params:')
                 print(tmp_params)
                 print('FIT step = ', k, 'substep = ', i, ', calculating new residual')
+            if abs(tmp_params[2]) > 1.E10:
+                print('Something wrong, fit gone too far')
+                f_step = True
+                f_end = True
+                break
             if aux_params is None:
                 model1 = modelf(x_in, tmp_params)  # model calc for new parameters
             else:
@@ -79,7 +86,12 @@ def fit_params(x_in: np.ndarray,
             rms2 = np.sqrt(np.sum((y_in - model1) ** 2))
             if f_verbose_fit:
                 print('old rms = ', rms1, '   new rms = ', rms2, '   lambda = ', ap)
-                print('relative difference = ', abs((rms2 - rms1) / rms1))
+                print('relative difference = ', abs((rms2 - rms1) / rms1))            
+            if math.isnan(rms2):
+                print('Something wrong, NaN values acquired.')
+                f_step = True
+                f_end = True
+                break
             if rms2 < rms1:  # case when new residual is smaller
                 if abs((rms2 - rms1) / rms1) > fit_precision:  # change of rms is great enough
                     if f_verbose_fit:
@@ -172,7 +184,7 @@ def fit_uncertainties(x_in: np.ndarray,
 
     for ipar in range(len(params_err)):
         try:
-            print(ipar, am2[ipar, ipar])
+            # print(ipar, am2[ipar, ipar])
             params_err[ipar] = rms * np.sqrt(am2[ipar, ipar]) * jac_flag[ipar]
         except:            
             params_err[ipar, ipar] = -1.

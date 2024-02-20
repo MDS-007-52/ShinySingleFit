@@ -20,7 +20,7 @@ nauxpar = 5  # number of auxilary params
 n_const_par = 31  # number of common parameters for all recordings in the multifit
 n_add_par = 6  # number of individual parameters for each recording in multifit
 
-f_verbose_fit = True
+# f_verbose_fit = True  # this feature was moved to the interface and subr_fit function
 
 single_params_dict = {"frq": "Central freq",
                       "int": "Intensity",

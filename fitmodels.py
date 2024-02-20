@@ -86,7 +86,14 @@ def mdljac(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params
 
 def calc_g_simple(p_self: float, p_for: float, temp: float,
                   g_self: float, g_for: float, ng_self: float, ng_for: float) -> float:
-    return g_self * p_self * (t_ref / temp) ** ng_self + g_for * p_for * (t_ref / temp) ** ng_for
+   
+    w_self = g_self * p_self
+    if ng_self != 0:
+        w_self *= (t_ref / temp) ** ng_self
+    w_for = g_for * p_for
+    if ng_for !=0:
+        w_for *= (t_ref / temp) ** ng_for
+    return w_self + w_for
 
 
 def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarray:
