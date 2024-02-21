@@ -1030,7 +1030,7 @@ def server(input, output, session):
             for i_bl in range (npt_bl):
                 tmp_bl0 += s_cur[i_bl] + s_cur[-1 - i_bl]
             tmp_bl0 *= 1./(2. * npt_bl)
-            print(tmp_bl0)
+            # print(tmp_bl0)
             params[istart+2] = tmp_bl0  # bl0
             # print('Scale', ifil, params[istart])
         
