@@ -57,6 +57,7 @@ def fit_params(x_in: np.ndarray,
         if f_verbose_fit:
             print('FIT step = ', k, 'substep = ', i, ', jacobi done')
         f_step = False  # flag of parameters step is done
+        fit_result_status = ' '
         while not f_step:
             # Levenberg-Markquardt method to calc the step of the params to less residual
             am1 = ap * np.eye(len(params0)) + np.matmul(jac.T, jac)
@@ -76,6 +77,7 @@ def fit_params(x_in: np.ndarray,
                 print('FIT step = ', k, 'substep = ', i, ', calculating new residual')
             if abs(tmp_params[2]) > 1.E10:
                 print('Something wrong, fit gone too far')
+                fit_result_status = 'Unconverged fit, unreasonably high parameter values. The most latest stable parameters set is returned.'
                 f_step = True
                 f_end = True
                 break
@@ -89,6 +91,7 @@ def fit_params(x_in: np.ndarray,
                 print('relative difference = ', abs((rms2 - rms1) / rms1))            
             if math.isnan(rms2):
                 print('Something wrong, NaN values acquired.')
+                fit_result_status = 'Unconverged fit. The most latest stable parameters set is returned.'
                 f_step = True
                 f_end = True
                 break
@@ -102,6 +105,7 @@ def fit_params(x_in: np.ndarray,
                 elif abs((rms2 - rms1) / rms1) <= fit_precision:  # change of rms is smaller then threshold
                     if f_verbose_fit:
                         print('next rms is smaller, but change is less than threshold, fit STOP')
+                    fit_result_status = 'Converged successfully in '+str(k)+' steps.'
                     cur_params += steparams
                     rms1 = rms2
                     f_step = True
@@ -110,6 +114,7 @@ def fit_params(x_in: np.ndarray,
                 if abs((rms2 - rms1) / rms1) < fit_precision:
                     if f_verbose_fit:
                         print('next rms is greater, but change is less than threshold, fit STOP')
+                    fit_result_status = 'Converged successfully in '+str(k)+' steps. Slow convergence.'
                     f_step = True
                     f_end = True
                 elif abs((rms2 - rms1) / rms1) > fit_precision:
@@ -118,10 +123,11 @@ def fit_params(x_in: np.ndarray,
                         if f_verbose_fit:
                             print('next rms is greater, change LAMBDA and repeat')
                     if i > iter_limit:
-                        f_end = True
-                        f_step = True
                         if f_verbose_fit:
                             print('can"t converge to a solution, BREAK')
+                        f_end = True
+                        f_step = True                        
+                        fit_result_status = 'Fit can not converge to a solution. Returning the result of the latest iteration.'
             elif rms2 is None:
                 if f_verbose_fit:
                     print('Something went wrong')
@@ -130,7 +136,7 @@ def fit_params(x_in: np.ndarray,
 
             i += 1
         k += 1
-    return cur_params
+    return cur_params, fit_result_status
 
 
 def fit_uncertainties(x_in: np.ndarray,

@@ -175,6 +175,10 @@ app_ui = ui.page_fluid(
                 ui.output_plot("preview_spectrum_multifit"),
                 ui.row(ui.column(4, ui.input_switch('s_verbose', "Verbose fit")),
                        ui.column(4, ui.input_action_button("b_fit_multifit", "Run multifit"))),
+                ui.row(ui.column(12, ui.output_text("fit_status_multifit"))),
+                ui.row(ui.column(4, ui.input_switch("s_f0_offset_multifit", "Subtract central frequency")), 
+                       ui.column(4, ui.input_numeric("f0_shift_multifit", "Central frq", value=115271.202))
+                       ),
                 ui.output_plot("preview_multifit"),
                 ui.row(ui.column(3, ui.download_button("download_params_multifit", "Download results")),
                        ui.column(3, ui.download_button("download_resid_multifit", "Download residuals")),
@@ -208,6 +212,7 @@ def server(input, output, session):
     residuals_multi: reactive.Value[list] = reactive.Value([])    
     nrecs = reactive.Value(0)
     aux_df: pd.DataFrame = reactive.Value()
+    text_status_multifit = reactive.Value('no fit result currently')
 
     # Service part just to test things
 
@@ -525,7 +530,7 @@ def server(input, output, session):
             jac_flag = [int(elem in input.jac_check()) for elem in single_params_dict]
 
             # calling the fit subroutine
-            params1 = fit_params(cur_data[:, 0], cur_data[:, 1], params0, mdl, mdljac, jac_flag,
+            params1, _ = fit_params(cur_data[:, 0], cur_data[:, 1], params0, mdl, mdljac, jac_flag,
                                  1.e-4, 1.e-12, 1.e4, 10, aux_params=params_aux0)
 
             uncert_1 = fit_uncertainties(cur_data[:, 0], cur_data[:, 1],
@@ -1056,10 +1061,15 @@ def server(input, output, session):
             fig, ax = plt.subplots(1, nrecs.get(), sharey=True)
             for ifil in range(nrecs.get()):
                 f_cur = recording.get()[ifil][:, 0]
-                r_cur = residuals_multi.get()[ifil]
-                frq0 = params_fit_multi.get()[1]
-                frq0 = 0.
+                r_cur = residuals_multi.get()[ifil]                
+                if input.s_f0_offset_multifit():
+                    frq0 = input.f0_shift_multifit()
+                else:
+                    frq0 = 0.
+                q_factor = max(recording.get()[ifil][:, 1]) / np.std(r_cur)
+                
                 ax[ifil].plot(f_cur - frq0, r_cur, 'b-')
+                ax[ifil].text(0.2, 0.8, 'Q = ' + str(round(q_factor)), ha='left', va='center', transform=ax[ifil].transAxes)
                 ax[ifil].hlines(y=0., 
                                 xmin=min(f_cur - frq0),
                                 xmax=max(f_cur - frq0),
@@ -1210,11 +1220,14 @@ def server(input, output, session):
         jac_flag_part1 = jac_flag_multi[0:n_const_par]
         jac_flag_part2 = jac_flag_multi[n_const_par:]
         jac_flag_multi_uncert = jac_flag_part1 + nrecs.get() * jac_flag_part2
-        print(jac_flag_multi)              
-        print(jac_flag_multi_uncert)
+        # print(jac_flag_multi)              
+        # print(jac_flag_multi_uncert)
 
-        params1 = fit_params(frqs, sgnl, params0, mdl_multi, mdljac_multi, jac_flag_multi, 
-                             1.e-4, 1.e-12, 1.e4, 10, aux_params=aux_list)
+        params1, str_status = fit_params(frqs, sgnl, params0, mdl_multi, mdljac_multi, jac_flag_multi, 
+                                         1.e-4, 1.e-12, 1.e4, 10, aux_params=aux_list, f_verbose_fit=input.s_verbose())
+        
+        text_status_multifit.set(str_status)  # write the status string to the global variable
+
         uncert_1 = fit_uncertainties(frqs, sgnl,
                                      params1, mdl_multi, mdljac_multi, jac_flag_multi_uncert,
                                          aux_params=aux_list)
@@ -1236,7 +1249,14 @@ def server(input, output, session):
 
         f_fit_multi.set(True)
 
-    
+    # Showing the status of the latest multifit
+    @output
+    @render.text
+    def fit_status_multifit():
+        if f_fit_multi.get():
+            return text_status_multifit.get()
+
+
     # Showing the results of the multifit routine
     @output
     @render.ui
@@ -1271,7 +1291,7 @@ def server(input, output, session):
             nfil = len(recording.get())
             for ifil in range(nfil):
                 col_comments = col_comments + col_comments_add
-            headers = ('# Parameter', 'Uncertainty', 'Description')
+            headers = ('#Parameter', 'Uncertainty', 'Description')
             headers = [elem.replace(' ', '_') for elem in headers]
             yield '   '.join([('%15s' % headers[0]).ljust(15), 
                               ('%15s' % headers[1]).ljust(15), 
