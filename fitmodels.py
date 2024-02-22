@@ -195,7 +195,7 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
             abs_htp = dif_htp(frq_cur, frq0, gdop, tmpG0, tmpG2, tmpD0, tmpD2, tmpnu, 
                               tmpS, dev, params[i_p_rec], params[i_p_rec+1], rtype)            
             abs_htp[:] += params[i_p_rec+2] + params[i_p_rec+3] * (frq_cur[:] - params[1]) \
-            + params[i_p_rec+4] * (frq_cur - params[1]) ** 2 + params[i_p_rec+5] * (frq_cur - params[1]) ** 3
+            + params[i_p_rec+4] * (frq_cur[:] - params[1]) ** 2 + params[i_p_rec+5] * (frq_cur[:] - params[1]) ** 3
             absor[tmp_where] = abs_htp
                 
     return absor
@@ -283,11 +283,11 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
 
     # deriv_bl0[:] = 1.
     # deriv_bl1[:] = frq[:] - params[1]
-    deriv_bl2[:] = (frq[:] - params[1])**2
+    deriv_bl2[:] = [(f - params[1])**2 for f in frq]
     deriv_bl3[:] = (frq[:] - params[1])**3
 
     for ifil in range(nfil):
-        # tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording        
+        tmp_where = np.where(aux_params[:, -1] == ifil)  # filter for the points related to some recording        
         # p_s = aux_params[tmp_where][0, 0]  # self-pressure
         # p_f = aux_params[tmp_where][0, 1]  # foreign-pressure
         # tmpr = aux_params[tmp_where][0, 2]  # temperature
@@ -306,7 +306,7 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
                 jac[tmp_where, i_start+2] = 1.            
             if jac_flag[n_const_par+3] == 1:            
                 jac[tmp_where, i_start+3] = frq[tmp_where] - params[1]
-            if jac_flag[n_const_par+4] == 1:
+            if jac_flag[n_const_par+4] == 1:                
                 jac[tmp_where, i_start+4] = deriv_bl2[tmp_where]  # (frq[tmp_where] - params[1])**2
             if jac_flag[n_const_par+5] == 1:
                 jac[tmp_where, i_start+5] = deriv_bl3[tmp_where]  # (frq[tmp_where] - params[1])**3
