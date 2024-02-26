@@ -495,7 +495,7 @@ def server(input, output, session):
             params0[3] = (input.g2() * p_self[ifil] + input.g2f() * p_for[ifil]) * t_dep  # G2
             params0[4] = (input.d2() * p_self[ifil] + input.d2f() * p_for[ifil]) * t_dep  # D2
             params0[5] = (input.y0() * p_self[ifil] + input.y0f() * p_for[ifil]) * t_dep  # Y
-            params0[6] = (input.nu() * p_self[ifil] + input.nuf() * p_for[ifil])  # Dicke parameter
+            params0[6] = (input.nu() * p_self[ifil] + input.nuf() * p_for[ifil]) * t_dep  # Dicke parameter
             params0[7:] = 0.  # some hardware-related params (and non-resonant, if applicable
 
             # auxilary params
