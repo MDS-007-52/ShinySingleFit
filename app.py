@@ -790,8 +790,8 @@ def server(input, output, session):
 
             del0_coefs, del0_cov = np.polyfit(p_foreign, f0[:], deg=1, rcond=None, full=False,
                                               w=1. / f0e[:] ** 2, cov=True)
-            del0_i = [del0_coefs[1], np.sqrt(gam0_cov[1, 1])]
-            del0_b = [del0_coefs[0], np.sqrt(gam0_cov[0, 0])]
+            del0_i = [del0_coefs[1], np.sqrt(del0_cov[1, 1])]
+            del0_b = [del0_coefs[0], np.sqrt(del0_cov[0, 0])]
 
             ind_g0 = 0
             ind_g2 = 1
@@ -1301,7 +1301,25 @@ def server(input, output, session):
             for i in range(params_array.shape[0]):                                
                 yield '   '.join([('%15.10g' % params_array[i]).ljust(15), 
                                   ('%15.10g' % uncert_array[i]).ljust(15),
-                                  ('%s' % col_comments[i]).ljust(15)] + ['\n'])  # this puts lines with parameters, errors and descrpition
+                                  ('%s' % '#' + col_comments[i]).ljust(15)] + ['\n'])  # this puts lines with parameters, errors and descrpition
+                
+    @render.download(filename='residuals_multi.zip')
+    def download_resid_multifit():
+        if f_fit_multi.get():
+            with io.BytesIO() as buf:
+                # this creates in-memory buffer where zip archive is stored
+                # without storing file on the disk
+                testzip = zipfile.ZipFile(buf, 'w')  # create a ZipFile object, instead of filename use buffer object name
+                tmp_names = names.get()
+                tmp_resid = residuals_multi.get()
+                for i in range(len(tmp_names)):
+                    current_resid_name = input.resid_prefix_multifit()+tmp_names[i]
+                    current_df = pd.DataFrame(tmp_resid[i])
+                    # create a file within zip archive
+                    testzip.writestr(current_resid_name, current_df.to_string(header=False, index=False))
+                testzip.close()
+                yield buf.getvalue()  # return the buffer content as file to download
+    
     # @render_widget
     # def spectra_info():
     #     if input.input_files is None:
