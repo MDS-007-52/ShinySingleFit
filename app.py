@@ -363,7 +363,8 @@ def server(input, output, session):
             cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())
             if rtype[ifil] == 0:  # cur_data[0, 0] < 1000: # CAV recordings is usually in GHz and 1/cm
                 # we convert it to MHz and 1/km
-                cur_data[:, 0] = cur_data[:, 0] * 1000.
+                if cur_data[0, 0] < 1000:
+                    cur_data[:, 0] = cur_data[:, 0] * 1000.
                 cur_data[:, 1] = cur_data[:, 1] * 1.e+5
 
             # calculate initial parameters based on the values specified above, pressures and temperatures
@@ -482,7 +483,8 @@ def server(input, output, session):
             cur_data = np.loadtxt(f[ifil]["datapath"], comments=input.text_comment())  # recording read from file
             if rtype[ifil] == 0:  # cur_data[0, 0] < 1000: # CAV recordings is usually in GHz and 1/cm
                 # we convert it to MHz and 1/km
-                cur_data[:, 0] = cur_data[:, 0] * 1000.
+                if cur_data[0, 0] < 1000:
+                    cur_data[:, 0] = cur_data[:, 0] * 1000.
                 cur_data[:, 1] = cur_data[:, 1] * 1.e+5
 
             # calculate initial parameters based on the values specified above, pressures and temperatures
@@ -692,6 +694,7 @@ def server(input, output, session):
         i0 = params_fit.get()[:, 4]
         g0 = params_fit.get()[:, 5]
         g2 = params_fit.get()[:, 6]
+        d2 = params_fit.get()[:, 7]
         y0 = params_fit.get()[:, 8]
         cc = params_fit.get()[:, 13]
 
@@ -699,6 +702,7 @@ def server(input, output, session):
         i0e = uncert_fit.get()[:, 4] + 1.E-10
         g0e = uncert_fit.get()[:, 5] + 1.E-10
         g2e = uncert_fit.get()[:, 6] + 1.E-15
+        d2e = uncert_fit.get()[:, 7] + 1.E-15
         y0e = uncert_fit.get()[:, 8] + 1.E-15
         cce = uncert_fit.get()[:, 13] + 1.E-25
 
@@ -717,6 +721,11 @@ def server(input, output, session):
                                               cov=True)
             gam2_self = [gam2_coefs[1], np.sqrt(gam2_cov[1, 1])]
             gam2_for = [gam2_coefs[0], np.sqrt(gam2_cov[0, 0])]
+
+            del2_coefs, del2_cov = np.polyfit(pnorm, d2[:] / p_self[:], 1, rcond=None, full=False, w=1. / d2e[:] ** 2,
+                                              cov=True)
+            del2_self = [del2_coefs[1], np.sqrt(del2_cov[1, 1])]
+            del2_for = [del2_coefs[0], np.sqrt(del2_cov[0, 0])]
 
             y0_coefs, y0_cov = np.polyfit(pnorm, y0[:] / p_self[:], 1, rcond=None, full=False, w=1. / y0e[:] ** 2,
                                           cov=True)
@@ -788,6 +797,11 @@ def server(input, output, session):
             gam2_i = [gam2_coefs[1], np.sqrt(gam2_cov[1, 1])]
             gam2_b = [gam2_coefs[0], np.sqrt(gam2_cov[0, 0])]
 
+            del2_coefs, del2_cov = np.polyfit(p_foreign, d2[:], 1, rcond=None, full=False, w=1. / d2e[:] ** 2,
+                                              cov=True)
+            del2_i = [del2_coefs[1], np.sqrt(del2_cov[1, 1])]
+            del2_b = [del2_coefs[0], np.sqrt(del2_cov[0, 0])]
+
             del0_coefs, del0_cov = np.polyfit(p_foreign, f0[:], deg=1, rcond=None, full=False,
                                               w=1. / f0e[:] ** 2, cov=True)
             del0_i = [del0_coefs[1], np.sqrt(del0_cov[1, 1])]
@@ -796,7 +810,9 @@ def server(input, output, session):
             ind_g0 = 0
             ind_g2 = 1
             ind_f0 = 2
-            ind_i0 = 3
+            ind_d2 = 3
+            ind_i0 = 4
+
 
             ax[ind_f0].errorbar(p_foreign, f0[:] - del0_i[0],
                                 xerr=None, yerr=f0e[:],
@@ -811,9 +827,9 @@ def server(input, output, session):
                                 xerr=None, yerr=g0e[:],
                                 fmt=points_style)
             ax[ind_g0].plot(p_foreign, gam0_i[0] + p_foreign * gam0_b[0], line_style)
-            ax[ind_g0].set_xlabel('P_foreign')
-            ax[ind_g0].set_ylabel('Gamma_0, MHz/Torr')
-            ax[ind_g0].text(0.5, 0.8, 'Foreign g0: %.3f(%0.f) MHz/Torr' % (gam0_b[0], gam0_b[1] * 1.E3),
+            ax[ind_g0].set_xlabel('P$_{foreign}$')
+            ax[ind_g0].set_ylabel('Gamma$_0$, MHz/Torr')
+            ax[ind_g0].text(0.5, 0.8, 'Foreign g$_0$: %.3f(%0.f) MHz/Torr' % (gam0_b[0], gam0_b[1] * 1.E3),
                             ha='center', va='center', transform=ax[ind_g0].transAxes)
 
             ax[ind_g2].errorbar(p_foreign, g2[:],
@@ -821,9 +837,18 @@ def server(input, output, session):
                                 fmt=points_style)
             ax[ind_g2].plot(p_foreign, gam2_i[0] + p_foreign * gam2_b[0], line_style)
             ax[ind_g2].set_xlabel('P_foreign')
-            ax[ind_g2].set_ylabel('Gamma_2, MHz/Torr')
-            ax[ind_g2].text(0.5, 0.8, 'Foreign g2: %.3f(%0.f) MHz/Torr' % (gam2_b[0], gam2_b[1] * 1.E3),
+            ax[ind_g2].set_ylabel('Gamma$_2$, MHz/Torr')
+            ax[ind_g2].text(0.5, 0.8, 'Foreign $g_2$: %.3f(%0.f) MHz/Torr' % (gam2_b[0], gam2_b[1] * 1.E3),
                             ha='center', va='center', transform=ax[ind_g2].transAxes)
+            
+            ax[ind_d2].errorbar(p_foreign, d2[:],
+                                xerr=None, yerr=d2e[:],
+                                fmt=points_style)
+            ax[ind_d2].plot(p_foreign, del2_i[0] + p_foreign * del2_b[0], line_style)
+            ax[ind_d2].set_xlabel('P_foreign')
+            ax[ind_d2].set_ylabel('Delta$_2$, MHz/Torr')
+            ax[ind_d2].text(0.5, 0.8, 'Foreign d$_2$: %.3f(%0.f) MHz/Torr' % (del2_b[0], del2_b[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_d2].transAxes)
 
             ax[ind_i0].errorbar(p_self[:] / (kB * tmpr[:]), i0, xerr=None, yerr=i0e, fmt=points_style)
             ax[ind_i0].set_xlabel('Absorber concentration, 1/m^3')
@@ -840,6 +865,11 @@ def server(input, output, session):
                                               cov=True)
             gam2_i = [gam2_coefs[1], np.sqrt(gam2_cov[1, 1])]
             gam2_b = [gam2_coefs[0], np.sqrt(gam2_cov[0, 0])]
+
+            del2_coefs, del2_cov = np.polyfit(p_self, d2[:], 1, rcond=None, full=False, w=1. / d2e[:] ** 2,
+                                              cov=True)
+            del2_i = [del2_coefs[1], np.sqrt(del2_cov[1, 1])]
+            del2_b = [del2_coefs[0], np.sqrt(del2_cov[0, 0])]
 
             del0_coefs, del0_cov = np.polyfit(p_self, f0[:], deg=1, rcond=None, full=False,
                                               w=1. / f0e[:] ** 2, cov=True)
@@ -932,11 +962,11 @@ def server(input, output, session):
 
             aux_cur[:, 2] = [t+273.5 if abs(t) < 100. else t for t in aux_cur[:, 2]]
 
-            aux_cur[:, -1] = ifil
-
-            part_t, part_q = part_data_global.get()
+            aux_cur[:, -1] = ifil            
+                
             partition_factor = 1.
             if not input.s_nopart:
+                part_t, part_q = part_data_global.get()
                 partition_factor = qpart(tmpr[ifil], t_ref, part_t, part_q)
             strength = partition_factor \
                        * math.exp(-c2 * input.melow() / tmpr[ifil]) \
@@ -1115,9 +1145,10 @@ def server(input, output, session):
 
             # calculate integral intensity with respect to partition etc
             # currently the program works with only one line profile in the recording, when expanding it to arbitrary number of lines, smth to be done here
-            part_t, part_q = part_data_global.get()  # partition function (info from HITRAN is recommended)
+            
             partition_factor = 1.
             if not input.s_nopart:
+                part_t, part_q = part_data_global.get()  # partition function (info from HITRAN is recommended)
                 partition_factor = qpart(tmpr[ifil], t_ref, part_t, part_q)  # there is an option for absence of partition
             strength = partition_factor \
                        * math.exp(-c2 * input.melow() / tmpr[ifil]) \

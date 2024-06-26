@@ -20,7 +20,7 @@ def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarr
 
     absor = np.empty_like(frq)
     absor1 = np.empty_like(frq)
-    if aux_params[-1] == 0:
+    if aux_params[-1] in [0, 3]:
         # old code for using hones integration form of the SDRP profile for resonator recordings at high pressure
         # for ifr in range(len(frq)):
         #    absor[ifr] = SDRP(frq[ifr], params[0], params[5], params[2], params[3], 0., params[4], aux_params[0]) \
@@ -35,7 +35,7 @@ def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarr
             + params[11] * (frq - params[0]) ** 3
     if aux_params[-1] == 0:
         absor += params[10] * frq ** 2
-    if aux_params[-1] in [1, 2]:
+    if aux_params[-1] in [1, 2, 3]:
         absor += params[10] * (frq - params[0])**2
     return absor
 
@@ -77,7 +77,7 @@ def mdljac(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params
     if jac_flag[10] == 1.:
         if aux_params[-1] == 0:
             jac[10] = frq ** 2
-        if aux_params[-1] in [1, 2]:
+        if aux_params[-1] in [1, 2, 3]:
             jac[10] = (frq - params[0]) ** 2
     if jac_flag[11] == 1.:
         jac[11] = (frq - params[0]) ** 3
