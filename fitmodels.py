@@ -19,13 +19,13 @@ def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarr
     # 4 - type (basically 0 = CAV, 1 = RAD w deviation, 2 = VID w deviation, 3 = VID natural
 
     absor = np.empty_like(frq)
-    absor1 = np.empty_like(frq)
+    
     if aux_params[-1] in [0, 3]:
         # old code for using hones integration form of the SDRP profile for resonator recordings at high pressure
         # for ifr in range(len(frq)):
         #    absor[ifr] = SDRP(frq[ifr], params[0], params[5], params[2], params[3], 0., params[4], aux_params[0]) \
         #                 * params[1]
-        absor, absor1 = htp(params[0], aux_params[1], params[2], params[3], 0.,
+        absor, _ = htp(params[0], aux_params[1], params[2], params[3], 0.,
                             params[4], params[6], 0., frq, Ylm=params[5])
         absor[:] *= aux_params[0] * params[1] * (frq[:]/params[0])**2
     if aux_params[-1] in [1, 2]:
@@ -186,10 +186,11 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
         tmp_conti = p_s * (p_s * cs * (t_ref / tmpr)**ncs + p_f * cf * (t_ref / tmpr)**ncf)
 
         i_p_rec = n_const_par + ifil * n_add_par  # index of params related to current recording
-        if rtype == 0:
+        if rtype in [0, 3]:
             abs_htp, _ =  htp(frq0, gdop, tmpG0, tmpG2, tmpD0, tmpD2, tmpnu, 0., frq_cur, Ylm=tmpY0)       
             abs_htp[:] = abs_htp[:] * tmpS * params[i_p_rec] * (frq_cur[:] / frq0)**2
-            abs_htp[:] += tmp_conti * frq_cur[:]**2
+            if rtype == 0:
+                abs_htp[:] += tmp_conti * frq_cur[:]**2
             absor[tmp_where] = abs_htp
         else:
             abs_htp = dif_htp(frq_cur, frq0, gdop, tmpG0, tmpG2, tmpD0, tmpD2, tmpnu, 

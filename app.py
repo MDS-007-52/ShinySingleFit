@@ -76,6 +76,14 @@ app_ui = ui.page_fluid(
                                                                 ui.column(3, ui.input_numeric("ngam", "T-dep power", value=0.75)
                                                                             ),
                                                                 ui.row(
+                                                                    ui.column(3, ui.input_numeric("d0", "d0 self, MHz/Torr", value=0.000)),
+                                                                    ui.column(3, ui.input_numeric("d0f", "foreign, MHz/Torr", value=0.000))
+                                                                ),
+                                                                ui.row(
+                                                                    ui.column(3, ui.input_numeric("d2", "d2 self, MHz/Torr", value=0.00)),
+                                                                    ui.column(3, ui.input_numeric("d2f", "foreign, MHz/Torr", value=0.00))
+                                                                ),
+                                                                ui.row(
                                                                     ui.column(3, ui.input_numeric("g0", "g0 self, MHz/Torr", value=3.375)),
                                                                     ui.column(3, ui.input_numeric("g0f", "foreign, MHz/Torr", value=2.750))
                                                                 ),
@@ -83,10 +91,7 @@ app_ui = ui.page_fluid(
                                                                     ui.column(3, ui.input_numeric("g2", "g2 self, MHz/Torr", value=0.33)),
                                                                     ui.column(3, ui.input_numeric("g2f", "foreign, MHz/Torr", value=0.28))
                                                                 ),
-                                                                ui.row(
-                                                                    ui.column(3, ui.input_numeric("d2", "d2 self, MHz/Torr", value=0.00)),
-                                                                    ui.column(3, ui.input_numeric("d2f", "foreign, MHz/Torr", value=0.00))
-                                                                ),
+                                                                
                                                                 ui.row(
                                                                     ui.column(3, ui.input_numeric("y0", "y self, 1/Torr", value=7.e-6)),
                                                                     ui.column(3, ui.input_numeric("y0f", "foreign, MHz/Torr", value=7.e-6))
@@ -370,9 +375,9 @@ def server(input, output, session):
             # calculate initial parameters based on the values specified above, pressures and temperatures
             params0 = np.empty(npar)
             aux_params0 = np.empty(nauxpar)
-            params0[0] = input.f0()  # center
-            params0[1] = 1.
             t_dep = (t_ref / tmpr[ifil]) ** input.ngam()  # T-factor for collisional params
+            params0[0] = input.f0() + (input.d0() * p_self[ifil] + input.d0f() * p_for[ifil]) * t_dep  # center
+            params0[1] = 1.            
             params0[2] = (input.g0() * p_self[ifil] + input.g0f() * p_for[ifil]) * t_dep  # G0
             params0[3] = (input.g2() * p_self[ifil] + input.g2f() * p_for[ifil]) * t_dep  # G2
             params0[4] = (input.d2() * p_self[ifil] + input.d2f() * p_for[ifil]) * t_dep  # D2
@@ -414,11 +419,13 @@ def server(input, output, session):
             if nrecs.get() == 1:
                 ax.plot(cur_data[:, 0] * 0.001, cur_data[:, 1], 'ro')
                 ax.plot(cur_data[:, 0] * 0.001, model0, 'b-')
+                ax.plot(cur_data[:, 0] * 0.001, (cur_data[:, 1] - model0) * 10., 'k-')
                 ax.text(0.2, 0.8,'P_self = '+str(p_self[ifil]), ha='left', va='center', transform=ax.transAxes)
                 ax.text(0.2, 0.7, 'P_foreign = '+str(p_for[ifil]), ha='left', va='center', transform=ax.transAxes)
             else:
                 ax[ifil].plot(cur_data[:, 0] * 0.001, cur_data[:, 1], 'ro')
                 ax[ifil].plot(cur_data[:, 0] * 0.001, model0, 'b-')
+                ax[ifil].plot(cur_data[:, 0] * 0.001, (cur_data[:, 1] - model0) * 10., 'k-')
                 ax[ifil].text(0.2, 0.8, 'P_self = '+str(p_self[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
                 ax[ifil].text(0.2, 0.7, 'P_foreign = '+str(p_for[ifil]), ha='left', va='center', transform=ax[ifil].transAxes)
             # ax = plt.subplot(ifil, cur_data[:,0]*0.001, cur_data[:,1]/np.max(cur_data[:,1]))
@@ -490,9 +497,9 @@ def server(input, output, session):
             # calculate initial parameters based on the values specified above, pressures and temperatures
             params0 = np.empty(npar)
             params_aux0 = np.empty(nauxpar)
-            params0[0] = input.f0()  # center
-            params0[1] = 1.  # I scale
             t_dep = (t_ref / tmpr[ifil]) ** input.ngam()  # T-factor for collisional params
+            params0[0] = input.f0() + (input.d0() * p_self[ifil] + input.d0f() * p_for[ifil]) * t_dep  # center
+            params0[1] = 1.  # I scale            
             params0[2] = (input.g0() * p_self[ifil] + input.g0f() * p_for[ifil]) * t_dep  # G0
             params0[3] = (input.g2() * p_self[ifil] + input.g2f() * p_for[ifil]) * t_dep  # G2
             params0[4] = (input.d2() * p_self[ifil] + input.d2f() * p_for[ifil]) * t_dep  # D2
