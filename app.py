@@ -1010,7 +1010,7 @@ def server(input, output, session):
         params = [0.] * mnpar # np.zeros(mnpar)
         params[multi_params_indx['mint']] = 1.
         params[multi_params_indx['mf0']] = input.mf0()
-        params[multi_params_indx['mg0s']] = input.mg0s()
+        params[multi_params_indx['mg0s']] = float(input.mg0s())
         params[multi_params_indx['mg0f']] = input.mg0f()
         params[multi_params_indx['mg2s']] = input.mg2s()
         params[multi_params_indx['mg2f']] = input.mg2f()
@@ -1043,13 +1043,13 @@ def server(input, output, session):
         for ifil in range(len(f)):
             #tmp_where = aux_list[:, -1] == ifil
             istart = n_const_par + ifil * n_add_par
-            params[istart] = 1.  # integral intensity correction
-            params[istart+1] = 0.  # radiation source power vs frequency correction
+            params[istart] = input.mscl()  # integral intensity correction
+            params[istart+1] = input.mpow()  # radiation source power vs frequency correction
             
-            params[istart+2] = 0.  # bl0
-            params[istart+3] = 0.  # bl1
-            params[istart+4] = 0.  # bl2
-            params[istart+5] = 0.  # bl3
+            params[istart+2] = input.mbl0()  # bl0
+            params[istart+3] = input.mbl1()  # bl1
+            params[istart+4] = input.mbl2()  # bl2
+            params[istart+5] = input.mbl3()  # bl3
         
         params = np.asarray(params)
         # print(params)
@@ -1061,7 +1061,7 @@ def server(input, output, session):
             m_cur = model0[tmp_where]
             s_cur = sgnl[tmp_where]
             istart = n_const_par + ifil * n_add_par
-            params[istart] = np.max(s_cur)/np.max(m_cur)
+            params[istart] = np.max(s_cur) * input.mscl() / np.max(m_cur)
             tmp_bl0 = 0.
             npt_bl = 5
             for i_bl in range (npt_bl):

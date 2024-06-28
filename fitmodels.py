@@ -21,13 +21,15 @@ def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarr
     absor = np.empty_like(frq)
     
     if aux_params[-1] in [0, 3]:
-        # old code for using hones integration form of the SDRP profile for resonator recordings at high pressure
+        # old code for using honest integration form of the SDRP profile for resonator recordings at high pressure
         # for ifr in range(len(frq)):
         #    absor[ifr] = SDRP(frq[ifr], params[0], params[5], params[2], params[3], 0., params[4], aux_params[0]) \
         #                 * params[1]
         absor, _ = htp(params[0], aux_params[1], params[2], params[3], 0.,
                             params[4], params[6], 0., frq, Ylm=params[5])
         absor[:] *= aux_params[0] * params[1] * (frq[:]/params[0])**2
+        if aux_params[-1] == 3:
+            absor[:] *= (1 + params[7] * (frq[:] - params[0]))  # account for the power factor for video AM recordings
     if aux_params[-1] in [1, 2]:
         absor = dif_htp(frq, params[0], aux_params[1], params[2], params[3], 0.,
                         params[4], params[6], aux_params[0], aux_params[2], params[1], params[7], aux_params[-1])
@@ -87,7 +89,7 @@ def mdljac(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_params
 def calc_g_simple(p_self: float, p_for: float, temp: float,
                   g_self: float, g_for: float, ng_self: float, ng_for: float) -> float:
    
-    w_self = g_self * p_self
+    w_self = float(g_self) * float(p_self)
     if ng_self != 0:
         w_self *= (t_ref / temp) ** ng_self
     w_for = g_for * p_for
@@ -108,10 +110,10 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
         p_s = aux_params[tmp_where][0, 0]  # self-pressure
         p_f = aux_params[tmp_where][0, 1]  # foreign-pressure
         tmpr = aux_params[tmp_where][0, 2]  # temperature
-        dev = aux_params[tmp_where][0, 3]  # temperature
-        rtype = int(aux_params[tmp_where][0, 4])  # line index
-        clen = aux_params[tmp_where][0, 5]  # temperature        
-        gdop = aux_params[tmp_where][0, -3]
+        dev = aux_params[tmp_where][0, 3]  # frequency deviation value for FM recordings
+        rtype = int(aux_params[tmp_where][0, 4])  # record type
+        clen = aux_params[tmp_where][0, 5]  # cell length        
+        gdop = aux_params[tmp_where][0, -3]  # Dopler width
 
         ### Calculation of parameters for the profile
 
@@ -191,6 +193,8 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
             abs_htp[:] = abs_htp[:] * tmpS * params[i_p_rec] * (frq_cur[:] / frq0)**2
             if rtype == 0:
                 abs_htp[:] += tmp_conti * frq_cur[:]**2
+            if rtype == 3:
+                abs_htp[:] *= 1 + params[i_p_rec+1] * (frq_cur[:] - params[1])
             absor[tmp_where] = abs_htp
         else:
             abs_htp = dif_htp(frq_cur, frq0, gdop, tmpG0, tmpG2, tmpD0, tmpD2, tmpnu, 
@@ -268,7 +272,7 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
     if jac_flag[n_const_par+1] == 1:  # only if power factor is adjustable (1-th additional parameter)
         for ifil in range(nfil):
             rtype = int(aux_params[tmp_where][0, 4])  # record type
-            if rtype in [1, 2]:  # only RAD and VID recs have power factor in model function
+            if rtype in [1, 2, 3]:  # only RAD and VID recs have power factor in model function
                 i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
                 params2 = np.copy(params)
                 params2[i_start+1] += dpar
@@ -282,8 +286,8 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
     deriv_bl2 = np.zeros_like(frq)
     deriv_bl3 = np.zeros_like(frq)
 
-    # deriv_bl0[:] = 1.
-    # deriv_bl1[:] = frq[:] - params[1]
+    deriv_bl0[:] = 1.
+    deriv_bl1[:] = frq[:] - params[1]
     deriv_bl2[:] = [(f - params[1])**2 for f in frq]
     deriv_bl3[:] = (frq[:] - params[1])**3
 
@@ -306,7 +310,7 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
             if jac_flag[n_const_par+2] == 1:
                 jac[tmp_where, i_start+2] = 1.            
             if jac_flag[n_const_par+3] == 1:            
-                jac[tmp_where, i_start+3] = frq[tmp_where] - params[1]
+                jac[tmp_where, i_start+3] = deriv_bl1[tmp_where] # frq[tmp_where] - params[1]
             if jac_flag[n_const_par+4] == 1:                
                 jac[tmp_where, i_start+4] = deriv_bl2[tmp_where]  # (frq[tmp_where] - params[1])**2
             if jac_flag[n_const_par+5] == 1:
