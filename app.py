@@ -81,7 +81,8 @@ app_ui = ui.page_fluid(
                                                                 ),
                                                                 ui.row(
                                                                     ui.column(3, ui.input_numeric("d2", "d2 self, MHz/Torr", value=0.00)),
-                                                                    ui.column(3, ui.input_numeric("d2f", "foreign, MHz/Torr", value=0.00))
+                                                                    ui.column(3, ui.input_numeric("d2f", "foreign, MHz/Torr", value=0.00)),
+                                                                    ui.column(3, ui.input_action_button("b_set_d2_zero", "Set to zero"))
                                                                 ),
                                                                 ui.row(
                                                                     ui.column(3, ui.input_numeric("g0", "g0 self, MHz/Torr", value=3.375)),
@@ -89,16 +90,19 @@ app_ui = ui.page_fluid(
                                                                 ),
                                                                 ui.row(
                                                                     ui.column(3, ui.input_numeric("g2", "g2 self, MHz/Torr", value=0.33)),
-                                                                    ui.column(3, ui.input_numeric("g2f", "foreign, MHz/Torr", value=0.28))
+                                                                    ui.column(3, ui.input_numeric("g2f", "foreign, MHz/Torr", value=0.28)),
+                                                                    ui.column(3, ui.input_action_button("b_set_g2_zero", "Set to zero"))
                                                                 ),
                                                                 
                                                                 ui.row(
                                                                     ui.column(3, ui.input_numeric("y0", "y self, 1/Torr", value=7.e-6)),
-                                                                    ui.column(3, ui.input_numeric("y0f", "foreign, MHz/Torr", value=7.e-6))
+                                                                    ui.column(3, ui.input_numeric("y0f", "foreign, MHz/Torr", value=7.e-6)),
+                                                                    ui.column(3, ui.input_action_button("b_set_y_zero", "Set to zero"))
                                                                 ),
                                                                 ui.row(
                                                                     ui.column(3, ui.input_numeric("nu", "N_vc self, MHz/Torr", value=0.15)),
-                                                                    ui.column(3, ui.input_numeric("nuf", "N_vc foreign, MHz/Torr", value=0.15))
+                                                                    ui.column(3, ui.input_numeric("nuf", "N_vc foreign, MHz/Torr", value=0.15)),
+                                                                    ui.column(3, ui.input_action_button("b_set_nu_zero", "Set to zero"))
                                                                 ),
                                                             )
                                                             )
@@ -231,6 +235,74 @@ def server(input, output, session):
             p.set(i, message='Test!')
             time.sleep(1)
         p.close()
+
+    ### Various automatic things to improve quality of life
+
+    # auto-update of multifit starting parameters if LBL fit ones are changed    
+    @reactive.Effect
+    def _():
+        upd = input.I0()
+        ui.update_numeric('mint', value=upd)
+        upd = input.elow()
+        ui.update_numeric('melow', value=upd)
+        upd = input.molm()
+        ui.update_numeric('mmolm', value=upd)        
+        upd = input.f0()
+        ui.update_numeric('mf0', value=upd)
+        upd = input.d0()
+        ui.update_numeric('md0s', value=upd)
+        upd = input.d2()
+        ui.update_numeric('md2s', value=upd)
+        upd = input.d0f()
+        ui.update_numeric('md0f', value=upd)
+        upd = input.d2f()
+        ui.update_numeric('md2f', value=upd)
+        upd = input.g0()
+        ui.update_numeric('mg0s', value=upd)
+        upd = input.g2()
+        ui.update_numeric('mg2s', value=upd)
+        upd = input.g0f()
+        ui.update_numeric('mg0f', value=upd)
+        upd = input.g2f()
+        ui.update_numeric('mg2f', value=upd)
+        upd = input.y0()
+        ui.update_numeric('my0s', value=upd)
+        upd = input.y0f()
+        ui.update_numeric('my0f', value=upd)
+        upd = input.nu()
+        ui.update_numeric('mnuvcs', value=upd)
+        upd = input.nuf()
+        ui.update_numeric('mnuvcf', value=upd)
+
+    # "set zero" button events
+
+    @reactive.Effect
+    @reactive.event(input.b_set_d2_zero)  
+    def _():
+        upd = 0.0
+        ui.update_numeric('d2', value=upd)
+        ui.update_numeric('d2f', value=upd)
+
+    @reactive.Effect
+    @reactive.event(input.b_set_g2_zero)  
+    def _():
+        upd = 1.e-100
+        ui.update_numeric('g2', value=upd)
+        ui.update_numeric('g2f', value=upd)
+
+    @reactive.Effect
+    @reactive.event(input.b_set_y_zero)  
+    def _():
+        upd = 0.0
+        ui.update_numeric('y0', value=upd)
+        ui.update_numeric('y0f', value=upd)
+
+    @reactive.Effect
+    @reactive.event(input.b_set_nu_zero)  
+    def _():
+        upd = 1.e-100
+        ui.update_numeric('nu', value=upd)
+        ui.update_numeric('nuf', value=upd)
 
     ### COMMON SECTION
         
