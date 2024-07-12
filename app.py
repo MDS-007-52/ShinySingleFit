@@ -5,6 +5,7 @@ from shiny import *  # App, Inputs, Outputs, Session, render, ui
 # import ipysheet
 import numpy as np
 from pathlib import Path
+import json
 import zipfile
 import io
 import math
@@ -50,6 +51,12 @@ app_ui = ui.page_fluid(
     ui.row(
         ui.column(4, ui.input_file("input_files", "Load your spectra", accept=["*.*"], multiple=True)),
         ui.column(4, ui.input_text("text_comment", "Commented lines", value="//"))),
+
+    # an interface for save/load line initial parameters presets
+    ui.row(           
+           ui.column(4, ui.input_file("load_line_params", "Load line data", accept=["*.*"], multiple=False)),
+           ui.column(4, ui.download_button("save_line_params", "Save line data"))
+           ),
 
     # Tab interface with two tabs for LBL and multifit treatment respectively
                     
@@ -223,7 +230,9 @@ def server(input, output, session):
     aux_df: pd.DataFrame = reactive.Value()
     text_status_multifit = reactive.Value('no fit result currently')
 
+
     # Service part just to test things
+
 
     @output
     @render.text
@@ -236,10 +245,12 @@ def server(input, output, session):
             time.sleep(1)
         p.close()
 
+
     ### Various automatic things to improve quality of life
 
+
     # auto-update of multifit starting parameters if LBL fit ones are changed    
-    @reactive.Effect
+    @reactive.effect
     def _():
         upd = input.I0()
         ui.update_numeric('mint', value=upd)
@@ -276,12 +287,14 @@ def server(input, output, session):
 
     # "set zero" button events
 
+
     @reactive.Effect
     @reactive.event(input.b_set_d2_zero)  
     def _():
         upd = 0.0
         ui.update_numeric('d2', value=upd)
         ui.update_numeric('d2f', value=upd)
+
 
     @reactive.Effect
     @reactive.event(input.b_set_g2_zero)  
@@ -290,12 +303,14 @@ def server(input, output, session):
         ui.update_numeric('g2', value=upd)
         ui.update_numeric('g2f', value=upd)
 
+
     @reactive.Effect
     @reactive.event(input.b_set_y_zero)  
     def _():
         upd = 0.0
         ui.update_numeric('y0', value=upd)
         ui.update_numeric('y0f', value=upd)
+
 
     @reactive.Effect
     @reactive.event(input.b_set_nu_zero)  
@@ -304,8 +319,109 @@ def server(input, output, session):
         ui.update_numeric('nu', value=upd)
         ui.update_numeric('nuf', value=upd)
 
+    
+
+    # Save and download initial params for the line
+    # the values are taken from MULTIFIT section as it is always the most recend edited one
+    @render.download(filename='line_params_preset.txt')
+    def save_line_params():
+            preset_params_dict = {}
+            preset_params_dict["mint"] = input.mint()
+            preset_params_dict["melow"] = input.melow()
+            preset_params_dict["mmolm"] = input.mmolm()
+            preset_params_dict["mf0"] = input.mf0()
+            preset_params_dict["mg0s"] = input.mg0s()
+            preset_params_dict["mg2s"] = input.mg2s()
+            preset_params_dict["mg0f"] = input.mg0f()
+            preset_params_dict["mg2f"] = input.mg2f()
+            preset_params_dict["md0s"] = input.md0s()
+            preset_params_dict["md2s"] = input.md2s()
+            preset_params_dict["md0f"] = input.md0f()
+            preset_params_dict["md2f"] = input.md2f()
+            preset_params_dict["my0s"] = input.my0s()
+            preset_params_dict["my0f"] = input.my0f()
+            preset_params_dict["mnuvcs"] = input.mnuvcs()
+            preset_params_dict["mnuvcf"] = input.mnuvcf()
+            preset_params_dict["mcs"] = input.mcs()
+            preset_params_dict["mcf"] = input.mcf()
+            preset_params_dict["mfrab"] = input.mfrab()
+            preset_params_dict["mng0s"] = input.mng0s()
+            preset_params_dict["mng2s"] = input.mng2s()
+            preset_params_dict["mng0f"] = input.mng0f()
+            preset_params_dict["mng2f"] = input.mng2f()
+            preset_params_dict["mnd0s"] = input.mnd0s()
+            preset_params_dict["mnd2s"] = input.mnd2s()
+            preset_params_dict["mnd0f"] = input.mnd0f()
+            preset_params_dict["mnd2f"] = input.mnd2f()
+            preset_params_dict["mny0s"] = input.mny0s()
+            preset_params_dict["mny0f"] = input.mny0f()
+            preset_params_dict["mnnuvcs"] = input.mnnuvcs()
+            preset_params_dict["mnnuvcf"] = input.mnnuvsf()
+            preset_params_dict["mncs"] = input.mncs()
+            preset_params_dict["mncf"] = input.mncf()
+            preset_params_dict["mscl"] = input.mscl()
+            preset_params_dict["mpow"] = input.mpow()
+            preset_params_dict["mbl0"] = input.mbl0()
+            preset_params_dict["mbl1"] = input.mbl1()
+            preset_params_dict["mbl2"] = input.mbl2()
+            preset_params_dict["mbl3"] = input.mbl3()
+            yield str(preset_params_dict)
+
+
+
+    # Upload earlier saved initial params for the line
+    # the data are loaded into those LBL section cells which copy their vaues to MULTIFIT, and into those MF cells which are not connected to LBL
+    @reactive.Effect
+    @reactive.event(input.load_line_params)
+    def _():
+        preset_path = input.load_line_params()[0]["datapath"]
+        with open(preset_path, 'r') as f:            
+            read_dictionary = eval(f.read())
+        ui.update_numeric('I0', value=read_dictionary['mint'])
+        ui.update_numeric('elow', value=read_dictionary['melow'])
+        ui.update_numeric('molm', value=read_dictionary['mmolm'])
+        ui.update_numeric('f0', value=read_dictionary['mf0'])
+        ui.update_numeric('g0', value=read_dictionary['mg0s'])
+        ui.update_numeric('g2', value=read_dictionary['mg2s'])
+        ui.update_numeric('g0f', value=read_dictionary['mg0f'])
+        ui.update_numeric('g2f', value=read_dictionary['mg2f'])
+        ui.update_numeric('d0', value=read_dictionary['md0s'])
+        ui.update_numeric('d2', value=read_dictionary['md2s'])
+        ui.update_numeric('d0f', value=read_dictionary['md0f'])
+        ui.update_numeric('d2f', value=read_dictionary['md2f'])
+        ui.update_numeric('y0', value=read_dictionary['my0s'])
+        ui.update_numeric('y0f', value=read_dictionary['my0f'])
+        ui.update_numeric('nu', value=read_dictionary['mnuvcs'])
+        ui.update_numeric('nuf', value=read_dictionary['mnuvcf'])
+        ui.update_numeric('mcs', value=read_dictionary['mcs'])
+        ui.update_numeric('mcf', value=read_dictionary['mcf'])
+        ui.update_numeric('mfrab', value=read_dictionary['mfrab'])
+        ui.update_numeric('mng0s', value=read_dictionary['mng0s'])
+        ui.update_numeric('ngam', value=read_dictionary['mng0s'])
+        ui.update_numeric('mng2s', value=read_dictionary['mng2s'])
+        ui.update_numeric('mng0f', value=read_dictionary['mng0f'])
+        ui.update_numeric('mng2f', value=read_dictionary['mng2f'])
+        ui.update_numeric('mnd0s', value=read_dictionary['mnd0s'])
+        ui.update_numeric('mnd2s', value=read_dictionary['mnd2s'])
+        ui.update_numeric('mnd0f', value=read_dictionary['mnd0f'])
+        ui.update_numeric('mnd2f', value=read_dictionary['mnd2f'])
+        ui.update_numeric('mny0s', value=read_dictionary['mny0s'])
+        ui.update_numeric('mny0f', value=read_dictionary['mny0f'])
+        ui.update_numeric('mnnuvcs', value=read_dictionary['mnnuvcs'])
+        ui.update_numeric('mnnuvcf', value=read_dictionary['mnnuvcf'])
+        ui.update_numeric('mncs', value=read_dictionary['mncs'])
+        ui.update_numeric('mncf', value=read_dictionary['mncf'])
+        ui.update_numeric('mscl', value=read_dictionary['mscl'])
+        ui.update_numeric('mpow', value=read_dictionary['mpow'])
+        ui.update_numeric('mbl0', value=read_dictionary['mbl0'])
+        ui.update_numeric('mbl1', value=read_dictionary['mbl1'])
+        ui.update_numeric('mbl2', value=read_dictionary['mbl2'])
+        ui.update_numeric('mbl3', value=read_dictionary['mbl3'])
+
+
     ### COMMON SECTION
-        
+
+
     # Processing of the loaded spectra (common for LBL fit and multifit)
     @reactive.Effect
     @reactive.event(input.input_files)
@@ -524,6 +640,7 @@ def server(input, output, session):
 
     
     # Run line-by-line fit routine
+
     @reactive.Effect
     @reactive.event(input.b_fit)  # within this func we get the parameters fitted to each loaded profile
     def _():
