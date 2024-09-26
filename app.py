@@ -356,7 +356,7 @@ def server(input, output, session):
             preset_params_dict["mny0s"] = input.mny0s()
             preset_params_dict["mny0f"] = input.mny0f()
             preset_params_dict["mnnuvcs"] = input.mnnuvcs()
-            preset_params_dict["mnnuvcf"] = input.mnnuvsf()
+            preset_params_dict["mnnuvcf"] = input.mnnuvcf()
             preset_params_dict["mncs"] = input.mncs()
             preset_params_dict["mncf"] = input.mncf()
             preset_params_dict["mscl"] = input.mscl()
