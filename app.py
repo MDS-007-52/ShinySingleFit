@@ -845,6 +845,7 @@ def server(input, output, session):
                               min((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
                               max((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
                               linestyles='dashed', colors='grey')
+                    ax.axvline(x=0., color='grey', ls='dashed')
                     ax.plot((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale,
                             residuals.get()[ifil][:, 1], 'b-')
                 else:
@@ -855,6 +856,8 @@ def server(input, output, session):
                                     min((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
                                     max((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale),
                                     linestyles='dashed', colors='grey')
+                    
+                    ax[ifil].axvline(x=0., color='grey', ls='dashed')
 
                     ax[ifil].plot((residuals.get()[ifil][:, 0] - params_fit.get()[ifil, 3]) * tmp_frq_scale,
                                   residuals.get()[ifil][:, 1],
@@ -1289,7 +1292,7 @@ def server(input, output, session):
                 f_cur = recording.get()[ifil][:, 0]
                 r_cur = residuals_multi.get()[ifil]                
                 if input.s_f0_offset_multifit():
-                    frq0 = input.f0_shift_multifit()
+                    frq0 = input.f0_shift_multifit()                    
                 else:
                     frq0 = 0.
                 q_factor = max(recording.get()[ifil][:, 1]) / np.std(r_cur)
@@ -1300,6 +1303,9 @@ def server(input, output, session):
                                 xmin=min(f_cur - frq0),
                                 xmax=max(f_cur - frq0),
                                 linestyles='dashed', colors='grey')
+                ax[ifil].axvline(x=params_fit_multi.get()[1] - frq0, color='grey', ls='dashed')
+                
+                
         else:
             fig, ax = plt.subplots()
             ax.text(0.5, 0.5, 'No residuals to show', transform=ax.transAxes)
