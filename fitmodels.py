@@ -16,29 +16,40 @@ def mdl(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np.ndarr
     # 1 - dopler width
     # 2 - deviation value, MHz
     # 3 - cell length
-    # 4 - type (basically 0 = CAV, 1 = RAD w deviation, 2 = VID w deviation, 3 = VID natural
+    # 4 - type (basically 0 = CAV, 1 = RAD w deviation, 2 = VID w deviation, 3 = RAD amp mod, 4 = VID natural
+    # (types 0, 3, 4 give line profile as is ("bell" shape), with some hardware-related differences)
 
     absor = np.empty_like(frq)
     
-    if aux_params[-1] in [0, 3]:
+    if aux_params[-1] in [0, 3, 4]:  # this condition is for cases when we observe line shape as is, no "derivative"-like thingies
+
         # old code for using honest integration form of the SDRP profile for resonator recordings at high pressure
         # for ifr in range(len(frq)):
         #    absor[ifr] = SDRP(frq[ifr], params[0], params[5], params[2], params[3], 0., params[4], aux_params[0]) \
         #                 * params[1]
+
         absor, _ = htp(params[0], aux_params[1], params[2], params[3], 0.,
-                            params[4], params[6], 0., frq, Ylm=params[5])
-        absor[:] *= aux_params[0] * params[1] * (frq[:]/params[0])**2
-        if aux_params[-1] == 3:
+                            params[4], params[6], 0., frq, Ylm=params[5])  # htp profile as is, no intensity and radiative term correction
+        absor[:] *= aux_params[0] * (frq[:]/params[0])**2  # multiply by integral intensity and radiative term (NB! f**2 is an approximation!)
+
+        if aux_params[-1]==3:  # for RAD spectrometer we need to account for the Bouger's law            
+            absor[:] = 1. - np.exp(-1. * absor[:])  # Bouger's law (note that strength in aux_params[0] is already multiplied by the cell length!)
+
+        if aux_params[-1] in [3, 4]:
             absor[:] *= (1 + params[7] * (frq[:] - params[0]))  # account for the power factor for video AM recordings
-    if aux_params[-1] in [1, 2]:
+        
+        absor[:] *= params[1]  # amplitude correction factor goes last
+
+    if aux_params[-1] in [1, 2]:  # in FM mode we use differential profile, see the corresponding unit for the details
         absor = dif_htp(frq, params[0], aux_params[1], params[2], params[3], 0.,
                         params[4], params[6], aux_params[0], aux_params[2], params[1], params[7], aux_params[-1])
+        
     absor = absor + params[8] + params[9] * (frq - params[0]) \
-            + params[11] * (frq - params[0]) ** 3
+            + params[11] * (frq - params[0]) ** 3  # adding baseline: constant, linear and cubic parts
     if aux_params[-1] == 0:
-        absor += params[10] * frq ** 2
-    if aux_params[-1] in [1, 2, 3]:
-        absor += params[10] * (frq - params[0])**2
+        absor += params[10] * frq ** 2  # for CAV (resonator) recordings square baseline is used as a continuum term
+    if aux_params[-1] in [1, 2, 3, 4]:
+        absor += params[10] * (frq - params[0])**2  # for all other recording types it is used as BL square term (difference is bias to)
     return absor
 
 
@@ -121,6 +132,8 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
         tmpS = aux_params[tmp_where][0, -2]  # line strength
         if rtype == 0:
             tmpS *= 1.E5
+        elif rtype == 4:
+            pass  # VS natural shape suggests having just absorption coefficient without corrections
         else:
             tmpS *= clen
         ### Line center
@@ -136,7 +149,7 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
         
         tmpG0 = calc_g_simple(p_s, p_f, tmpr,
                               params[id_s], params[id_f], params[id_ns], params[id_nf])
-        if rtype in [1, 2, 3]:          
+        if rtype != 0:
             id_frab = multi_params_indx["mfrab"]
             frab = params[id_frab]
             tmpG0 = np.sqrt(tmpG0**2 + frab**2)  
@@ -188,20 +201,22 @@ def mdl_multi(frq: np.ndarray, params: np.ndarray, aux_params: np.ndarray) -> np
         tmp_conti = p_s * (p_s * cs * (t_ref / tmpr)**ncs + p_f * cf * (t_ref / tmpr)**ncf)
 
         i_p_rec = n_const_par + ifil * n_add_par  # index of params related to current recording
-        if rtype in [0, 3]:
-            abs_htp, _ =  htp(frq0, gdop, tmpG0, tmpG2, tmpD0, tmpD2, tmpnu, 0., frq_cur, Ylm=tmpY0)       
-            abs_htp[:] = abs_htp[:] * tmpS * params[i_p_rec] * (frq_cur[:] / frq0)**2
-            if rtype == 0:
+        if rtype in [0, 3, 4]:
+            abs_htp, _ =  htp(frq0, gdop, tmpG0, tmpG2, tmpD0, tmpD2, tmpnu, 0., frq_cur, Ylm=tmpY0)                   
+            if rtype == 0:  # resonator
+                abs_htp[:] = abs_htp[:] * tmpS * params[i_p_rec] * (frq_cur[:] / frq0)**2
                 abs_htp[:] += tmp_conti * frq_cur[:]**2
-            if rtype == 3:
-                abs_htp[:] *= 1 + params[i_p_rec+1] * (frq_cur[:] - params[1])
-            absor[tmp_where] = abs_htp
+            if rtype == 3:  # RAD AM
+                abs_htp[:] = (1 - np.exp(-abs_htp[:] * tmpS)) * (1 + params[i_p_rec+1] * (frq_cur[:] - params[1])) * params[i_p_rec]
+            if rtype == 4:  # VS AM
+                abs_htp[:] *= (1 + params[i_p_rec+1] * (frq_cur[:] - params[1])) * params[i_p_rec]
+            # absor[tmp_where] = abs_htp
         else:
             abs_htp = dif_htp(frq_cur, frq0, gdop, tmpG0, tmpG2, tmpD0, tmpD2, tmpnu, 
                               tmpS, dev, params[i_p_rec], params[i_p_rec+1], rtype)            
-            abs_htp[:] += params[i_p_rec+2] + params[i_p_rec+3] * (frq_cur[:] - params[1]) \
-            + params[i_p_rec+4] * (frq_cur[:] - params[1]) ** 2 + params[i_p_rec+5] * (frq_cur[:] - params[1]) ** 3
-            absor[tmp_where] = abs_htp
+        abs_htp[:] += params[i_p_rec+2] + params[i_p_rec+3] * (frq_cur[:] - params[1]) \
+        + params[i_p_rec+4] * (frq_cur[:] - params[1]) ** 2 + params[i_p_rec+5] * (frq_cur[:] - params[1]) ** 3
+        absor[tmp_where] = abs_htp
                 
     return absor
 
@@ -272,7 +287,7 @@ def mdljac_multi(frq: np.ndarray, jac_flag: np.ndarray, params: np.ndarray, aux_
     if jac_flag[n_const_par+1] == 1:  # only if power factor is adjustable (1-th additional parameter)
         for ifil in range(nfil):
             rtype = int(aux_params[tmp_where][0, 4])  # record type
-            if rtype in [1, 2, 3]:  # only RAD and VID recs have power factor in model function
+            if rtype in [1, 2, 3, 4]:  # only RAD and VID recs have power factor in model function
                 i_start = n_const_par + n_add_par * ifil  # index of first rec-related parameter
                 params2 = np.copy(params)
                 params2[i_start+1] += dpar

@@ -588,7 +588,7 @@ def server(input, output, session):
 
             if rtype[ifil] == 0:
                 strength *= 1.e05  # 1/cm to 1/km for CAV recordings
-            if rtype[ifil] in [1, 2]:
+            if rtype[ifil] in [1, 2, 3]:
                 strength *= clen[ifil]  # multuply to length for better perfomance on the RAD and VID recordings
 
             aux_params0[0] = strength
