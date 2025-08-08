@@ -1080,6 +1080,12 @@ def server(input, output, session):
             ind_f0 = 2
             ind_i0 = 3
 
+            ind_g0 = 0
+            ind_g2 = 1
+            ind_f0 = 2
+            ind_d2 = 3
+            ind_i0 = 4
+
             ax[ind_f0].errorbar(p_self, f0[:] - del0_i[0],
                                 xerr=None, yerr=f0e[:],
                                 fmt=points_style)
@@ -1106,6 +1112,15 @@ def server(input, output, session):
             ax[ind_g2].set_ylabel('Gamma_2, MHz/Torr')
             ax[ind_g2].text(0.5, 0.8, 'Self g2: %.3f(%0.f) MHz/Torr' % (gam2_b[0], gam2_b[1] * 1.E3),
                             ha='center', va='center', transform=ax[ind_g2].transAxes)
+            
+            ax[ind_d2].errorbar(p_self, d2[:],
+                                xerr=None, yerr=d2e[:],
+                                fmt=points_style)
+            ax[ind_d2].plot(p_self, del2_i[0] + p_self * del2_b[0], line_style)
+            ax[ind_d2].set_xlabel('P_foreign')
+            ax[ind_d2].set_ylabel('Delta$_2$, MHz/Torr')
+            ax[ind_d2].text(0.5, 0.8, 'Self d$_2$: %.3f(%0.f) MHz/Torr' % (del2_b[0], del2_b[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_d2].transAxes)
 
             ax[ind_i0].errorbar(p_self[:] / (kB * tmpr[:]), i0, xerr=None, yerr=i0e, fmt=points_style)
             ax[ind_i0].set_xlabel('Absorber concentration, 1/m^3')
