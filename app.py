@@ -4,6 +4,7 @@ from shiny import *  # App, Inputs, Outputs, Session, render, ui
 # import ipywidgets as widgets
 # import ipysheet
 import numpy as np
+
 from pathlib import Path
 import json
 import zipfile
@@ -945,7 +946,7 @@ def server(input, output, session):
         points_style = 'ro'
         line_style = 'k-'
 
-        if input.s_normself():
+        if input.s_normself():  # in case of normalizing total pressure and lineshape params to self-pressure
             pnorm = p_foreign[:] / p_self[:]
 
             gam0_coefs, gam0_cov = np.polyfit(pnorm, g0[:] / p_self[:], deg=1, rcond=None, full=False,
@@ -1021,12 +1022,12 @@ def server(input, output, session):
             ax[ind_c].set_xlabel('P_foreign/P_self')
             ax[ind_c].set_ylabel('Continuum parameter')
 
-        if (not input.s_normself()) and input.s_foreign():
+        if (not input.s_normself()) and input.s_foreign():  # foreign-broadening but just direct pressure values using
 
             gam0_coefs, gam0_cov = np.polyfit(p_foreign, g0[:], deg=1, rcond=None, full=False,
                                               w=1. / g0e[:] ** 2, cov=True)
-            gam0_i = [gam0_coefs[1], np.sqrt(gam0_cov[1, 1])]
-            gam0_b = [gam0_coefs[0], np.sqrt(gam0_cov[0, 0])]
+            gam0_i = [gam0_coefs[1], np.sqrt(gam0_cov[1, 1])]  # intercept (self-contribution)
+            gam0_b = [gam0_coefs[0], np.sqrt(gam0_cov[0, 0])]  # foreign-broadening parameter
 
             gam2_coefs, gam2_cov = np.polyfit(p_foreign, g2[:], 1, rcond=None, full=False, w=1. / g2e[:] ** 2,
                                               cov=True)
@@ -1090,22 +1091,28 @@ def server(input, output, session):
             ax[ind_i0].set_xlabel('Absorber concentration, 1/m^3')
             ax[ind_i0].set_ylabel('Intensity correction, unitless')
 
-        if (not input.s_normself()) and (not input.s_foreign()):
+        if (not input.s_normself()) and (not input.s_foreign()):  # self-broadening case
 
             gam0_coefs, gam0_cov = np.polyfit(p_self, g0[:], deg=1, rcond=None, full=False,
                                               w=1. / g0e[:] ** 2, cov=True)
-            gam0_i = [gam0_coefs[1], np.sqrt(gam0_cov[1, 1])]
-            gam0_b = [gam0_coefs[0], np.sqrt(gam0_cov[0, 0])]
+            gam0_i = [gam0_coefs[1], np.sqrt(gam0_cov[1, 1])]  # intercept
+            gam0_b = [gam0_coefs[0], np.sqrt(gam0_cov[0, 0])]  # broadening coef
+
+            gam00, ergam00 = linear_fit_0(p_self, g0[:], g0e[:])
 
             gam2_coefs, gam2_cov = np.polyfit(p_self, g2[:], 1, rcond=None, full=False, w=1. / g2e[:] ** 2,
                                               cov=True)
             gam2_i = [gam2_coefs[1], np.sqrt(gam2_cov[1, 1])]
             gam2_b = [gam2_coefs[0], np.sqrt(gam2_cov[0, 0])]
 
+            gam20, ergam20 = linear_fit_0(p_self, g2[:], g2e[:])
+
             del2_coefs, del2_cov = np.polyfit(p_self, d2[:], 1, rcond=None, full=False, w=1. / d2e[:] ** 2,
                                               cov=True)
             del2_i = [del2_coefs[1], np.sqrt(del2_cov[1, 1])]
             del2_b = [del2_coefs[0], np.sqrt(del2_cov[0, 0])]
+
+            del20, erdel20 = linear_fit_0(p_self, d2[:], d2e[:])
 
             del0_coefs, del0_cov = np.polyfit(p_self, f0[:], deg=1, rcond=None, full=False,
                                               w=1. / f0e[:] ** 2, cov=True)
@@ -1137,8 +1144,11 @@ def server(input, output, session):
                                 fmt=points_style)
             ax[ind_g0].plot(p_self, gam0_i[0] + p_self * gam0_b[0], line_style)
             ax[ind_g0].set_xlabel('P_self')
-            ax[ind_g0].set_ylabel('Gamma_0, MHz/Torr')
-            ax[ind_g0].text(0.5, 0.8, 'Self g0: %.3f(%0.f) MHz/Torr' % (gam0_b[0], gam0_b[1] * 1.E3),
+            ax[ind_g0].set_ylabel('$\\Gamma_{0}$, MHz')
+            
+            ax[ind_g0].text(0.5, 0.8, 'Self g0: %.3f(%0.f) MHz/Torr, intercept %.3f(%0.f) MHz' % (gam0_b[0], gam0_b[1] * 1.E3, gam0_i[0], gam0_i[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_g0].transAxes)
+            ax[ind_g0].text(0.5, 0.7, 'No intercept self g0: %.3f(%0.f) MHz/Torr' % (gam00, ergam00 * 1.E3),
                             ha='center', va='center', transform=ax[ind_g0].transAxes)
 
             ax[ind_g2].errorbar(p_self, g2[:],
@@ -1146,8 +1156,10 @@ def server(input, output, session):
                                 fmt=points_style)
             ax[ind_g2].plot(p_self, gam2_i[0] + p_self * gam2_b[0], line_style)
             ax[ind_g2].set_xlabel('P_self')
-            ax[ind_g2].set_ylabel('Gamma_2, MHz/Torr')
-            ax[ind_g2].text(0.5, 0.8, 'Self g2: %.3f(%0.f) MHz/Torr' % (gam2_b[0], gam2_b[1] * 1.E3),
+            ax[ind_g2].set_ylabel('$\\Gamma_{2}$, MHz')
+            ax[ind_g2].text(0.5, 0.8, 'Self g2: %.3f(%0.f) MHz/Torr, intercept %.3f(%0.f) MHz' % (gam2_b[0], gam2_b[1] * 1.E3, gam2_i[0], gam2_i[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_g2].transAxes)
+            ax[ind_g2].text(0.5, 0.7, 'No intercept self g2: %.3f(%0.f) MHz/Torr' % (gam20, ergam20 * 1.E3),
                             ha='center', va='center', transform=ax[ind_g2].transAxes)
             
             ax[ind_d2].errorbar(p_self, d2[:],
@@ -1155,8 +1167,10 @@ def server(input, output, session):
                                 fmt=points_style)
             ax[ind_d2].plot(p_self, del2_i[0] + p_self * del2_b[0], line_style)
             ax[ind_d2].set_xlabel('P_foreign')
-            ax[ind_d2].set_ylabel('Delta$_2$, MHz/Torr')
-            ax[ind_d2].text(0.5, 0.8, 'Self d$_2$: %.3f(%0.f) MHz/Torr' % (del2_b[0], del2_b[1] * 1.E3),
+            ax[ind_d2].set_ylabel('$\\Delta_2$, MHz')
+            ax[ind_d2].text(0.5, 0.8, 'Self d$_2$: %.3f(%0.f) MHz/Torr, intercept %.3f(%0.f) MHz' % (del2_b[0], del2_b[1] * 1.E3, del2_i[0], del2_i[1] * 1.E3),
+                            ha='center', va='center', transform=ax[ind_d2].transAxes)
+            ax[ind_d2].text(0.5, 0.7, 'No intercept self d2: %.3f(%0.f) MHz/Torr' % (del20, erdel20 * 1.E3),
                             ha='center', va='center', transform=ax[ind_d2].transAxes)
 
             ax[ind_i0].errorbar(p_self[:] / (kB * tmpr[:]), i0, xerr=None, yerr=i0e, fmt=points_style)

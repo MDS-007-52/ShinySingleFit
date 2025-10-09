@@ -1,4 +1,64 @@
 # global kB, clight, pi, k_vs_aem, k_st, c2, hP, m_aem, t_ref
+import numpy as np
+from typing import Union
+from scipy.optimize import curve_fit
+
+# Various functions for T- and P-dependencies
+
+# Single exponent law for T-dependence of broadening coefs
+def g0vst(x: float, g0: float, ng: float) -> float:
+    return g0 * (t_ref / x)**ng
+
+
+# Foreign broadening width G_V or G_0 versus pressure with saturation (Rabi frq parameter is "rf")
+def g0vsp_frgn(x: float, a: float, b: float, rf: float) -> float:
+    return np.sqrt((a + b * x)**2 + rf**2)
+
+
+# Self broadening width G_V or G_0 versus pressure with saturation (Rabi frq parameter is "rf")
+def g0vsp_self(x: float, b: float, rf: float) -> float:
+    return np.sqrt((b * x)**2 + rf**2)
+
+
+# Linear P-dependence with ZERO intercept (for self G_2 or D_2 versus P)
+def g0vsp_0(x: float, a: float) -> float:
+    return x * a
+
+
+# Fit routines returning params and corresponding errors
+
+# Fit of the regular linear dependence with slope l_coefs[0] and intercept l_coefs[1] (suits for central frq0 vs P)
+def linear_fit(data_x: Union[list, np.ndarray], data_y: Union[list, np.ndarray], data_yerr: Union[list, np.ndarray]) -> list[np.ndarray, np.ndarray]:
+    l_coefs, l_cov = np.polyfit(np.copy(data_x)[:], np.copy(data_y)[:], 1, rcond=None, full=False, w = 1. / np.copy(data_yerr)[:]**2, cov=True)
+    l_err = [np.sqrt(l_cov[i, i]) for i in range(len(l_coefs))]
+    return l_coefs, l_err
+
+# Fit of the linear P-dependence with zero intercept
+def linear_fit_0(data_x: Union[list, np.ndarray], data_y: Union[list, np.ndarray], data_yerr: Union[list, np.ndarray]) -> list[np.ndarray, np.ndarray]:
+    # coef =  (max(data_y)/max(data_x))
+    params, cov = curve_fit(g0vsp_0, np.copy(data_x), np.copy(data_y), sigma=np.copy(data_yerr), absolute_sigma=True, full_output=False)
+    return params[0], np.sqrt(cov[0, 0])
+
+# Fit of the saturated P-dependence of the SI-part of collisional width for self-broadening
+# order: 0 - broadening, 1 - Rabi frq
+def rabi_fit_self(data_x: Union[list, np.ndarray], data_y: Union[list, np.ndarray], data_yerr: Union[list, np.ndarray], rabi0=0.1) -> list[np.ndarray, np.ndarray]:
+    slope = np.max(data_y) / np.max(data_x)
+    rabi = rabi0
+    params0 = np.array([slope, rabi])
+    params, cov = curve_fit(g0vsp_self, np.copy(data_x), np.copy(data_y), sigma=np.copy(data_yerr), p0=params0, absolute_sigma=True, full_output=False)
+    err = [np.sqrt(cov[i, i]) for i in range(len(params))]
+    return params, err
+
+# Fit of the saturated P-dependence of the SI-part of collisional width for foreign-broadening
+# order: 0 - intercept, 1 - broadening, 2 - Rabi frq
+def rabi_fit_frgn(data_x: Union[list, np.ndarray], data_y: Union[list, np.ndarray], data_yerr: Union[list, np.ndarray]) -> list[np.ndarray, np.ndarray]:
+    slope = (np.max(data_y) - np.min(data_y)) / np.max(data_x)
+    intercept = np.min(data_y)
+    rabi = 0.1
+    params0 = np.array([intercept, slope, rabi])
+    params, cov = curve_fit(g0vsp_frgn, np.copy(data_x), np.copy(data_y), sigma=np.copy(data_yerr), p0=params0, absolute_sigma=True, full_output=False)
+    err = [np.sqrt(cov[i, i]) for i in range(len(params))]
+    return params, err
 
 hP = 6.62607004E-34
 m_aem = 1.6605402E-27
