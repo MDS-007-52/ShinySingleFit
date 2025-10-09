@@ -44,6 +44,25 @@ single_params_adjustable_init = ["frq",
                                  "bl1",
                                  "bl2"]
 
+
+single_params_preset_si = ["frq",
+                            "int",
+                            "g0",
+                            "pow",                                                        
+                            "bl0",
+                            ]
+
+single_params_preset_sd = ["frq",
+                            "int",
+                            "g0",
+                            "g2",
+                            "d2",
+                            "pow",                                                        
+                            "bl0",
+                            "bl1",
+                            "bl2"]
+
+
 single_params_adjustable_cav = ["frq",
                                  "int",
                                  "g0",
@@ -183,3 +202,43 @@ multi_params_adjustable_init = ["mf0" ,
                                 "mbl1" ,
                                 "mbl2" ,
                                 "mbl3"]
+
+multi_params_preset_sis = ["mf0",
+                            "mg0s",                                                        
+                            "md0s",                            
+                            "mscl",
+                            "mpow",
+                            "mbl0"]
+
+multi_params_preset_sif = ["mg0s",                            
+                            "mg0f",                            
+                            "md0s",
+                            "md0f",
+                            "mscl",
+                            "mpow",
+                            "mbl0"]
+
+multi_params_preset_sds = ["mf0",
+                            "mg0s",
+                            "mg2s",
+                            "md0s",
+                            "md2s",
+                            "mscl",
+                            "mpow",
+                            "mbl0", 
+                            "mbl1",
+                            "mbl2"]
+
+multi_params_preset_sdf = ["mg0s",
+                           "mg2s",
+                            "mg0f",
+                            "mg2f",
+                            "md0s",
+                            "md2s",
+                            "md0f",
+                            "md2f",
+                            "mscl",
+                            "mpow",
+                            "mbl0", 
+                            "mbl1",
+                            "mbl2"]

@@ -66,6 +66,9 @@ app_ui = ui.page_fluid(
                                # this sidebar layout is for marking which parameters to adjust and initial parameters values
                                ui.layout_sidebar(
                                                 ui.panel_sidebar(ui.h4("Mark adjustable"),
+                                                                ui.row(ui.column(6, ui.input_action_button("b_preset_si", "preset SI")), 
+                                                                       ui.column(6, ui.input_action_button("b_preset_sd", "preset SD"))
+                                                                       ),
                                                                 ui.input_checkbox_group("jac_check", "",
                                                                                         single_params_dict, 
                                                                                         selected=single_params_adjustable_init),
@@ -141,6 +144,10 @@ app_ui = ui.page_fluid(
                    # tab for multifit
                    ui.nav_panel("Multifit treatment", 
                                 ui.layout_sidebar(ui.panel_sidebar(ui.h4("Mark adjustable"),
+                                                                   ui.row(ui.column(6, ui.input_action_button("b_preset_msis", "preset SI self")), 
+                                                                          ui.column(6, ui.input_action_button("b_preset_msds", "preset SD self"))),
+                                                                   ui.row(ui.column(6, ui.input_action_button("b_preset_msif", "preset SI frgn")), 
+                                                                          ui.column(6, ui.input_action_button("b_preset_msdf", "preset SD frgn"))),
                                        ui.input_checkbox_group("jac_check_multi", "",
                                                                multi_params_dict, 
                                                                selected=multi_params_adjustable_init)), 
@@ -418,6 +425,36 @@ def server(input, output, session):
         ui.update_numeric('mbl2', value=read_dictionary['mbl2'])
         ui.update_numeric('mbl3', value=read_dictionary['mbl3'])
 
+
+    @reactive.Effect
+    @reactive.event(input.b_preset_si)  # within this func we get the parameters fitted to each loaded profile
+    def _():
+        ui.update_checkbox_group("jac_check", selected=single_params_preset_si)
+
+    @reactive.Effect
+    @reactive.event(input.b_preset_sd)  # within this func we get the parameters fitted to each loaded profile
+    def _():
+        ui.update_checkbox_group("jac_check", selected=single_params_preset_sd)
+
+    @reactive.Effect
+    @reactive.event(input.b_preset_msis)  # within this func we get the parameters fitted to each loaded profile
+    def _():
+        ui.update_checkbox_group("jac_check_multi", selected=multi_params_preset_sis)
+
+    @reactive.Effect
+    @reactive.event(input.b_preset_msds)  # within this func we get the parameters fitted to each loaded profile
+    def _():
+        ui.update_checkbox_group("jac_check_multi", selected=multi_params_preset_sds)
+
+    @reactive.Effect
+    @reactive.event(input.b_preset_msif)  # within this func we get the parameters fitted to each loaded profile
+    def _():
+        ui.update_checkbox_group("jac_check_multi", selected=multi_params_preset_sif)
+
+    @reactive.Effect
+    @reactive.event(input.b_preset_msdf)  # within this func we get the parameters fitted to each loaded profile
+    def _():
+        ui.update_checkbox_group("jac_check_multi", selected=multi_params_preset_sdf)
 
     ### COMMON SECTION
 
