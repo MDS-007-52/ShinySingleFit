@@ -10,3 +10,4 @@ shiny~=0.7.0
 shinywidgets~=0.2.0
 matplotlib~=3.7.1
 scipy~=1.10.1
+websockets==13.0.0
