@@ -576,7 +576,7 @@ def server(input, output, session):
         aux_data = aux_df.get().to_numpy(dtype=float)
         p_self = aux_data[:, 0]  # self pressure, Torr
         p_for = aux_data[:, 1]  # foreign pressure, Torr
-        tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
+        tmpr = [t+273.15 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
         dev = aux_data[:, 3]  # frq deviation where applicable, MHz (for RAD and VID)
         rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VIC)
@@ -692,7 +692,7 @@ def server(input, output, session):
         aux_data = aux_df.get().to_numpy(dtype=float)
         p_self = aux_data[:, 0]  # self pressure, Torr
         p_for = aux_data[:, 1]  # foreign pressure, Torr
-        tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
+        tmpr = [t+273.15 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
         dev = aux_data[:, 3]  # frq deviation where applicable, MHz (for RAD and VID)
         rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VIC)
@@ -1208,7 +1208,7 @@ def server(input, output, session):
         aux_data = aux_df.get().to_numpy(dtype=float)
         p_self = aux_data[:, 0]  # self pressure, Torr
         p_for = aux_data[:, 1]  # foreign pressure, Torr
-        tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
+        tmpr = [t+273.15 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
         dev = aux_data[:, 3]  # frq deviation where applicable, MHz (for RAD and VID)
         rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VID)
@@ -1225,7 +1225,7 @@ def server(input, output, session):
             for i_aux in range(aux_data.shape[1]):
                 aux_cur[:, i_aux] = aux_data[ifil, i_aux]
 
-            aux_cur[:, 2] = [t+273.5 if abs(t) < 100. else t for t in aux_cur[:, 2]]
+            aux_cur[:, 2] = [t+273.15 if abs(t) < 100. else t for t in aux_cur[:, 2]]
 
             aux_cur[:, -1] = ifil            
                 
@@ -1389,7 +1389,7 @@ def server(input, output, session):
         aux_data = aux_df.get().to_numpy(dtype=float)
         p_self = aux_data[:, 0]  # self pressure, Torr
         p_for = aux_data[:, 1]  # foreign pressure, Torr
-        tmpr = [t+273.5 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
+        tmpr = [t+273.15 if abs(t) < 100. else t for t in aux_data[:, 2]]  # temperature, K
         dev = aux_data[:, 3]  # frq deviation where applicable, MHz (for RAD and VID)
         rtype = aux_data[:, 4]  # record type (0=CAV, 1=RAD+dev, 2=VID+dev, 3=VID natural)
         clen = aux_data[:, 5]  # cell length where applicable, cm (for RAD and VID)
@@ -1407,7 +1407,7 @@ def server(input, output, session):
             for i_aux in range(aux_data.shape[1]):
                 aux_cur[:, i_aux] = aux_data[ifil, i_aux]
 
-            aux_cur[:, 2] = [t+273.5 if abs(t) < 100. else t for t in aux_cur[:, 2]]  # recalc temperature in aux data
+            aux_cur[:, 2] = [t+273.15 if abs(t) < 100. else t for t in aux_cur[:, 2]]  # recalc temperature in aux data
 
             aux_cur[:, -1] = ifil  # the last col of aux_data is number of recording, it is necessary as all data are stacked together
 
